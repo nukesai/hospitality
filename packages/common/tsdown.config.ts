@@ -4,6 +4,10 @@ const config: UserConfig = defineConfig({
   name: "@nukesai-pos/common",
   entry: {
     index: "src/index.ts",
+    "auth/index": "src/auth/index.ts",
+    "errors/index": "src/errors/index.ts",
+    "observability/index": "src/observability/index.ts",
+    "observability/analytics-validation": "src/observability/analytics-validation.ts",
     "types/index": "src/types/index.ts",
     "constants/index": "src/constants/index.ts",
     "schemas/index": "src/schemas/index.ts",

@@ -24,6 +24,22 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "default": "./dist/auth/index.js"
+    },
+    "./errors": {
+      "types": "./dist/errors/index.d.ts",
+      "default": "./dist/errors/index.js"
+    },
+    "./observability": {
+      "types": "./dist/observability/index.d.ts",
+      "default": "./dist/observability/index.js"
+    },
+    "./observability/validation": {
+      "types": "./dist/observability/analytics-validation.d.ts",
+      "default": "./dist/observability/analytics-validation.js"
+    },
     "./types": {
       "types": "./dist/types/index.d.ts",
       "default": "./dist/types/index.js"
@@ -63,6 +79,9 @@
     "build": "tsdown",
     "check-types": "tsc --noEmit",
     "lint": "eslint ."
+  },
+  "dependencies": {
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "catalog:",

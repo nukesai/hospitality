@@ -1,26 +1,32 @@
 [
   {
-    "name": "common — full entry (ESM)",
+    "name": "common \u2014 full entry (ESM)",
     "path": "packages/common/dist/index.js",
     "limit": "8 kB",
     "gzip": true
   },
   {
-    "name": "common — single export (tree-shaking proof)",
+    "name": "common \u2014 single export (tree-shaking proof)",
     "path": "packages/common/dist/index.js",
     "import": "{ formatMoney }",
     "limit": "1.5 kB",
     "gzip": true
   },
   {
-    "name": "frontend — client entry (ESM)",
+    "name": "common \u2014 observability/validation subpath (opt-in zod cost)",
+    "path": "packages/common/dist/observability/analytics-validation.js",
+    "limit": "70 kB",
+    "gzip": true
+  },
+  {
+    "name": "frontend \u2014 client entry (ESM)",
     "path": "packages/frontend/dist/client/index.js",
     "limit": "45 kB",
     "ignore": ["react", "react-dom", "next"],
     "gzip": true
   },
   {
-    "name": "frontend — single component (tree-shaking proof)",
+    "name": "frontend \u2014 single component (tree-shaking proof)",
     "path": "packages/frontend/dist/client/index.js",
     "import": "{ OrderTicket }",
     "limit": "6 kB",
@@ -28,7 +34,7 @@
     "gzip": true
   },
   {
-    "name": "backend — server entry (must never reach a browser bundle)",
+    "name": "backend \u2014 server entry (must never reach a browser bundle)",
     "path": "packages/backend/dist/index.js",
     "limit": "60 kB",
     "ignore": ["next", "server-only"],
