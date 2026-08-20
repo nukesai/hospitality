@@ -2,20 +2,9 @@ import { defineConfig, type UserConfig } from "tsdown";
 
 const config: UserConfig = defineConfig({
   name: "@nukesai-pos/common",
-  entry: {
-    index: "src/index.ts",
-    "auth/index": "src/auth/index.ts",
-    "errors/index": "src/errors/index.ts",
-    "observability/index": "src/observability/index.ts",
-    "observability/analytics-validation": "src/observability/analytics-validation.ts",
-    "types/index": "src/types/index.ts",
-    "constants/index": "src/constants/index.ts",
-    "schemas/index": "src/schemas/index.ts",
-    "i18n/index": "src/i18n/index.ts",
-    "runtime/index": "src/runtime/index.ts",
-    // Glob key: one file per locale so importing `ne` never pays for `en`.
-    "i18n/locales/*": "./src/i18n/locales/*.ts",
-  },
+  // Every module is an entry: dist/ mirrors src/ exactly (per-module chunks,
+  // maximal tree-shaking; the hand-written exports map points into it).
+  entry: ["src/**/*.ts", "!src/**/*.test.*"],
   // Pins the dist layout so the hand-written exports map cannot drift.
   root: "src",
   format: "esm",

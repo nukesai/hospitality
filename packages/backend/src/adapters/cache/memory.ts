@@ -6,6 +6,11 @@ interface MemoryEntry {
   readonly tags: readonly string[];
 }
 
+/** Simulated IO tick: keeps the in-memory adapter honest about the async port contract. */
+const io = async (): Promise<void> => {
+  await Promise.resolve();
+};
+
 export interface MemoryCacheOptions {
   /** Hard bound on entries — the adapter cannot leak by construction. */
   readonly maxEntries?: number;
@@ -24,7 +29,9 @@ export const createMemoryCacheStore = (options: MemoryCacheOptions = {}): CacheS
   const entries = new Map<string, MemoryEntry>();
   const tagIndex = new Map<string, Set<string>>();
 
-  const detach = (key: string, entry: MemoryEntry): void => {
+  const detach = (key: string): void => {
+    const entry = entries.get(key);
+    if (entry === undefined) return;
     entries.delete(key);
     for (const tag of entry.tags) {
       const members = tagIndex.get(tag);
@@ -36,10 +43,11 @@ export const createMemoryCacheStore = (options: MemoryCacheOptions = {}): CacheS
 
   return {
     get: async (key: string): Promise<string | null> => {
+      await io();
       const entry = entries.get(key);
       if (entry === undefined) return null;
       if (entry.expiresAt <= clock()) {
-        detach(key, entry);
+        detach(key);
         return null;
       }
       entries.delete(key);
@@ -53,13 +61,12 @@ export const createMemoryCacheStore = (options: MemoryCacheOptions = {}): CacheS
       hardTtlSeconds: number,
       tags: readonly string[],
     ): Promise<void> => {
-      const previous = entries.get(key);
-      if (previous !== undefined) detach(key, previous);
+      await io();
+      detach(key);
       while (entries.size >= maxEntries) {
         const oldestKey = entries.keys().next().value;
         if (oldestKey === undefined) break;
-        const oldest = entries.get(oldestKey);
-        if (oldest !== undefined) detach(oldestKey, oldest);
+        detach(oldestKey);
       }
       entries.set(key, {
         value: envelopeJson,
@@ -74,25 +81,22 @@ export const createMemoryCacheStore = (options: MemoryCacheOptions = {}): CacheS
     },
 
     del: async (keys: readonly string[]): Promise<void> => {
-      for (const key of keys) {
-        const entry = entries.get(key);
-        if (entry !== undefined) detach(key, entry);
-      }
+      await io();
+      for (const key of keys) detach(key);
     },
 
     invalidateTags: async (tags: readonly string[]): Promise<void> => {
+      await io();
       for (const tag of tags) {
         const members = tagIndex.get(tag);
         if (members === undefined) continue;
-        for (const key of [...members]) {
-          const entry = entries.get(key);
-          if (entry !== undefined) detach(key, entry);
-        }
+        for (const key of [...members]) detach(key);
         tagIndex.delete(tag);
       }
     },
 
     close: async (): Promise<void> => {
+      await io();
       entries.clear();
       tagIndex.clear();
     },

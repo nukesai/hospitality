@@ -67,7 +67,44 @@ const envSchema = z
     path: ["SMTP_HOST"],
   });
 
-export type PosEnv = z.infer<typeof envSchema>;
+/**
+ * Hand-written (NOT z.infer): inferring the exported type from the schema drags
+ * the non-exported schema into the public API and fails isolatedDeclarations
+ * (TS9010). env.test.ts locks schema/interface parity field by field.
+ */
+export interface PosEnv {
+  readonly NODE_ENV: "development" | "test" | "production";
+  readonly BACKEND_RUNTIME: "server" | "vercel";
+  readonly DATABASE_URL: string;
+  readonly MIGRATE_DATABASE_URL?: string | undefined;
+  readonly DATABASE_POOL_MAX: number;
+  readonly DATABASE_POOL_IDLE_TIMEOUT_MS: number;
+  readonly DATABASE_CONNECT_TIMEOUT_MS: number;
+  readonly DATABASE_POOL_MAX_USES: number;
+  readonly DATABASE_SSL: boolean;
+  readonly CACHE_DRIVER: "memory" | "ioredis" | "upstash";
+  readonly CACHE_URL?: string | undefined;
+  readonly CACHE_KEY_PREFIX: string;
+  readonly UPSTASH_REDIS_REST_URL?: string | undefined;
+  readonly UPSTASH_REDIS_REST_TOKEN?: string | undefined;
+  readonly BETTER_AUTH_SECRET: string;
+  readonly BETTER_AUTH_URL: string;
+  readonly AUTH_TRUSTED_ORIGINS: string;
+  readonly AUTH_COOKIE_DOMAIN?: string | undefined;
+  readonly MAIL_DRIVER: "smtp" | "noop";
+  readonly SMTP_HOST?: string | undefined;
+  readonly SMTP_PORT: number;
+  readonly SMTP_SECURE: boolean;
+  readonly SMTP_USER?: string | undefined;
+  readonly SMTP_PASS?: string | undefined;
+  readonly MAIL_FROM: string;
+  readonly LOG_LEVEL: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
+  readonly ANALYTICS_DRIVER: "noop" | "webhook";
+  readonly ANALYTICS_WRITE_KEY?: string | undefined;
+  readonly API_MAX_BODY_BYTES: number;
+  readonly DEFAULT_LOCALE: string;
+}
+
 export type PosEnvSource = Readonly<Record<string, string | undefined>>;
 
 export function parseEnv(source: PosEnvSource): PosEnv {

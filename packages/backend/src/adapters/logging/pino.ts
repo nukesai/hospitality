@@ -21,16 +21,30 @@ export interface PinoLoggerConfig {
 }
 
 const wrap = (instance: PinoLogger): LoggerPort => ({
-  trace: (message: string, fields?: LogFields): void => instance.trace(fields ?? {}, message),
-  debug: (message: string, fields?: LogFields): void => instance.debug(fields ?? {}, message),
-  info: (message: string, fields?: LogFields): void => instance.info(fields ?? {}, message),
-  warn: (message: string, fields?: LogFields): void => instance.warn(fields ?? {}, message),
-  error: (message: string, fields?: LogFields): void => instance.error(fields ?? {}, message),
-  fatal: (message: string, fields?: LogFields): void => instance.fatal(fields ?? {}, message),
+  trace: (message: string, fields?: LogFields): void => {
+    instance.trace(fields ?? {}, message);
+  },
+  debug: (message: string, fields?: LogFields): void => {
+    instance.debug(fields ?? {}, message);
+  },
+  info: (message: string, fields?: LogFields): void => {
+    instance.info(fields ?? {}, message);
+  },
+  warn: (message: string, fields?: LogFields): void => {
+    instance.warn(fields ?? {}, message);
+  },
+  error: (message: string, fields?: LogFields): void => {
+    instance.error(fields ?? {}, message);
+  },
+  fatal: (message: string, fields?: LogFields): void => {
+    instance.fatal(fields ?? {}, message);
+  },
   child: (bindings: LogBindings): LoggerPort => wrap(instance.child(bindings)),
-  flush: (): Promise<void> =>
+  flush: async (): Promise<void> =>
     new Promise<void>((resolve, reject) => {
-      instance.flush((err?: Error) => (err ? reject(err) : resolve()));
+      instance.flush((err?: Error) => {
+        err ? reject(err) : resolve();
+      });
     }),
 });
 

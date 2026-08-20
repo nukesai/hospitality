@@ -57,7 +57,7 @@ export const createCache = (store: CacheStore, deps: CreateCacheDeps = {}): Cach
     }
   };
 
-  const loadAndWrite = <T>(
+  const loadAndWrite = async <T>(
     key: string,
     options: CacheEntryOptions,
     load: () => Promise<T>,
@@ -125,6 +125,6 @@ export const createCache = (store: CacheStore, deps: CreateCacheDeps = {}): Cach
       metrics.onMiss?.(key);
       return loadAndWrite(key, options, load);
     },
-    close: (): Promise<void> => store.close(),
+    close: async (): Promise<void> => store.close(),
   };
 };

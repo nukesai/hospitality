@@ -31,6 +31,14 @@
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
     },
+    "./i18n": {
+      "types": "./dist/i18n/index.d.ts",
+      "default": "./dist/i18n/index.js"
+    },
+    "./locales/*": {
+      "types": "./dist/locales/*.d.ts",
+      "default": "./dist/locales/*.js"
+    },
     "./styles.css": "./styles.css",
     "./package.json": "./package.json"
   },
@@ -57,28 +65,42 @@
     "@arethetypeswrong/core": "catalog:",
     "@nukesai-pos/eslint-config": "workspace:*",
     "@nukesai-pos/typescript-config": "workspace:*",
+    "@tanstack/react-query": "catalog:",
     "@testing-library/dom": "catalog:",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "catalog:",
+    "@trpc/client": "catalog:",
+    "@trpc/server": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "better-auth": "catalog:",
     "eslint": "catalog:",
+    "i18next": "catalog:",
     "jsdom": "catalog:",
     "next": "catalog:",
     "publint": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-i18next": "catalog:",
+    "superjson": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
+    "@tanstack/react-query": "^5.80.3",
+    "@trpc/client": "^11.18.0",
+    "@trpc/server": "^11.18.0",
+    "better-auth": "^1.7.1",
+    "i18next": "^26.2.0",
     "next": "^16.3.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-i18next": "^17.0.0",
+    "superjson": "^2.2.0"
   },
   "engines": {
     "node": ">=20.19.0"

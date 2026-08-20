@@ -7,18 +7,21 @@
       "project": ["scripts/**/*.mjs", "e2e/**/*.ts", "*.{js,ts}"]
     },
     "apps/example": {
-      "entry": ["app/**/{page,layout}.tsx"],
+      "entry": [
+        "app/**/{page,layout,route}.tsx",
+        "app/**/route.ts",
+        "server/**/*.ts",
+        "lib/**/*.ts"
+      ],
       "project": ["**/*.{ts,tsx}"]
     },
     "packages/common": {
       "project": ["src/**/*.ts!"]
     },
     "packages/backend": {
-      "ignoreDependencies": ["next"],
       "project": ["src/**/*.ts!"]
     },
     "packages/frontend": {
-      "ignoreDependencies": ["next"],
       "project": ["src/**/*.{ts,tsx}!"]
     },
     "packages/cli": {

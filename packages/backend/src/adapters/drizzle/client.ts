@@ -75,7 +75,7 @@ export function createPosDb(
 
   const db: PosDatabase = drizzle({ client: pool, schema: schemaModule });
 
-  const close = (): Promise<void> => {
+  const close = async (): Promise<void> => {
     store.closing ??= pool.end().finally(() => {
       delete store.instance;
       delete store.closing;

@@ -14,9 +14,19 @@
     "@nukesai-pos/backend": "workspace:^",
     "@nukesai-pos/common": "workspace:^",
     "@nukesai-pos/frontend": "workspace:^",
+    "@tanstack/react-query": "catalog:",
+    "@trpc/client": "catalog:",
+    "@trpc/server": "catalog:",
+    "@vercel/functions": "catalog:",
+    "better-auth": "catalog:",
+    "i18next": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "react-i18next": "catalog:",
+    "server-only": "catalog:",
+    "superjson": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@nukesai-pos/eslint-config": "workspace:*",

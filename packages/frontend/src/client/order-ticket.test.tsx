@@ -4,7 +4,16 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { en } from "../locales/en.js";
+import { PosI18nProvider } from "./i18n.js";
 import { OrderTicket } from "./order-ticket.js";
+
+const renderTicket = (ui: Parameters<typeof render>[0]): ReturnType<typeof render> =>
+  render(
+    <PosI18nProvider lng="en" resources={{ en }}>
+      {ui}
+    </PosI18nProvider>,
+  );
 
 const order: Order = {
   id: "order-9",
@@ -20,7 +29,7 @@ const order: Order = {
 
 describe("OrderTicket", () => {
   it("renders lines and the computed total", () => {
-    render(<OrderTicket order={order} />);
+    renderTicket(<OrderTicket order={order} />);
     expect(screen.getByText("2 × Momo")).toBeInTheDocument();
     expect(screen.getByText("1 × Chiya")).toBeInTheDocument();
     expect(screen.getByText("€10.50")).toBeInTheDocument();
@@ -29,7 +38,7 @@ describe("OrderTicket", () => {
   it("acknowledges once and disables the button", async () => {
     const user = userEvent.setup();
     const onAcknowledge = vi.fn();
-    render(<OrderTicket order={order} onAcknowledge={onAcknowledge} />);
+    renderTicket(<OrderTicket order={order} onAcknowledge={onAcknowledge} />);
 
     const button = screen.getByRole("button", { name: "Acknowledge" });
     await user.click(button);
@@ -40,7 +49,7 @@ describe("OrderTicket", () => {
 
   it("works without an onAcknowledge callback", async () => {
     const user = userEvent.setup();
-    render(<OrderTicket order={order} />);
+    renderTicket(<OrderTicket order={order} />);
     await user.click(screen.getByRole("button", { name: "Acknowledge" }));
     expect(screen.getByRole("button", { name: "Acknowledged" })).toBeDisabled();
   });

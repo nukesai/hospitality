@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, numeric, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { createInsertSchema, createSelectSchema, type BuildSchema } from "drizzle-zod";
 
 import type {
   BranchRef,
@@ -19,7 +19,7 @@ import { branch } from "./auth.js";
  * DELETE role-gated to owner/admin (mirrors common's PERMISSION_MATRIX).
  * Status values are validated app-side against common's ORDER_STATUSES.
  */
-export const orders: PosTable<
+type OrdersTable = PosTable<
   "orders",
   {
     id: UuidPk<"orders">;
@@ -28,7 +28,9 @@ export const orders: PosTable<
     total: MoneyCol<"orders", "total">;
     createdAt: CreatedAt<"orders">;
   }
-> = pgTable(
+>;
+
+export const orders: Omit<OrdersTable, "enableRLS"> = pgTable(
   "orders",
   {
     id: uuid("id")
@@ -72,7 +74,15 @@ export const orders: PosTable<
   ],
 ).enableRLS();
 
-export const orderInsertSchema: ReturnType<typeof createInsertSchema<typeof orders>> =
-  createInsertSchema(orders);
-export const orderSelectSchema: ReturnType<typeof createSelectSchema<typeof orders>> =
-  createSelectSchema(orders);
+export const orderInsertSchema: BuildSchema<
+  "insert",
+  (typeof orders)["_"]["columns"],
+  undefined,
+  undefined
+> = createInsertSchema(orders);
+export const orderSelectSchema: BuildSchema<
+  "select",
+  (typeof orders)["_"]["columns"],
+  undefined,
+  undefined
+> = createSelectSchema(orders);

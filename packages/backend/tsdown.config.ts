@@ -2,24 +2,9 @@ import { defineConfig, type UserConfig } from "tsdown";
 
 const config: UserConfig = defineConfig({
   name: "@nukesai-pos/backend",
-  entry: {
-    index: "src/index.ts",
-    env: "src/env.ts",
-    "bootstrap/create-pos": "src/bootstrap/create-pos.ts",
-    "trpc/index": "src/trpc/index.ts",
-    "next/index": "src/next/index.ts",
-    "cache/index": "src/cache/index.ts",
-    "auth/index": "src/auth/index.ts",
-    "ports/index": "src/ports/index.ts",
-    "adapters/demo/index": "src/adapters/demo/index.ts",
-    "adapters/drizzle/index": "src/adapters/drizzle/index.ts",
-    "adapters/cache/redis": "src/adapters/cache/redis.ts",
-    "adapters/cache/upstash": "src/adapters/cache/upstash.ts",
-    "adapters/cache/memory": "src/adapters/cache/memory.ts",
-    "adapters/logging/pino": "src/adapters/logging/pino.ts",
-    // Throws on import; wired into guarded exports via the "browser" condition.
-    _browser_guard: "src/internal/browser-guard.ts",
-  },
+  // Every module is an entry (dist mirrors src); the browser guard keeps its
+  // stable path for the "browser" export condition.
+  entry: ["src/**/*.ts", "!src/**/*.test.*"],
   root: "src",
   format: "esm",
   platform: "node",

@@ -17,9 +17,9 @@ const SERVER_ONLY = /import\s*["']server-only["']/;
 
 describe("backend dist boundary contract", () => {
   it("emits the browser guard, its types, and the guard throws", () => {
-    expect(existsSync(path.join(DIST, "_browser_guard.js"))).toBe(true);
+    expect(existsSync(path.join(DIST, "internal/browser-guard.js"))).toBe(true);
     expect(existsSync(path.join(DIST, "index.d.ts"))).toBe(true);
-    expect(read("_browser_guard.js")).toContain("server-only and cannot be imported");
+    expect(read("internal/browser-guard.js")).toContain("server-only and cannot be imported");
   });
 
   it("guarded entries keep their server-only poison pill", () => {

@@ -85,6 +85,11 @@ catalog:
 
 minimumReleaseAgeExclude:
   - "@vitejs/plugin-react@6.1.0"
+  - i18next@26.4.0
+  - react-i18next@17.0.12
+  - "@vercel/cli-config@0.2.4"
+  - "@vercel/functions@3.9.5"
+  - "@vercel/oidc@3.8.5"
 
 allowBuilds:
   esbuild: true

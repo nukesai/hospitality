@@ -24,6 +24,7 @@ import type {
   BoolColD,
   IntCol,
   NullTextCol,
+  NullTsCol,
   PosTable,
   TextCol,
   TextColD,
@@ -32,8 +33,6 @@ import type {
   UuidCol,
   UuidPk,
 } from "./_column-types.js";
-
-const uuidPk = (): ReturnType<typeof uuid> => uuid("id").default(sql`pg_catalog.gen_random_uuid()`);
 
 export const user: PosTable<
   "user",
@@ -47,7 +46,9 @@ export const user: PosTable<
     updatedAt: TsColD<"user", "updated_at">;
   }
 > = pgTable("user", {
-  id: uuidPk().primaryKey(),
+  id: uuid("id")
+    .default(sql`pg_catalog.gen_random_uuid()`)
+    .primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
@@ -72,7 +73,9 @@ export const session: PosTable<
 > = pgTable(
   "session",
   {
-    id: uuidPk().primaryKey(),
+    id: uuid("id")
+      .default(sql`pg_catalog.gen_random_uuid()`)
+      .primaryKey(),
     expiresAt: timestamp("expires_at").notNull(),
     token: text("token").notNull().unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -91,6 +94,7 @@ export const account: PosTable<
   "account",
   {
     id: UuidPk<"account">;
+    issuer: TextCol<"account", "issuer">;
     accountId: TextCol<"account", "account_id">;
     providerId: TextCol<"account", "provider_id">;
     userId: UuidCol<"account", "user_id">;
@@ -107,7 +111,10 @@ export const account: PosTable<
 > = pgTable(
   "account",
   {
-    id: uuidPk().primaryKey(),
+    id: uuid("id")
+      .default(sql`pg_catalog.gen_random_uuid()`)
+      .primaryKey(),
+    issuer: text("issuer").notNull(),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
     userId: uuid("user_id")
@@ -124,7 +131,7 @@ export const account: PosTable<
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("account_providerId_accountId_uidx").on(table.providerId, table.accountId),
+    uniqueIndex("account_issuer_accountId_uidx").on(table.issuer, table.accountId),
     index("account_userId_idx").on(table.userId),
   ],
 );
@@ -142,7 +149,9 @@ export const verification: PosTable<
 > = pgTable(
   "verification",
   {
-    id: uuidPk().primaryKey(),
+    id: uuid("id")
+      .default(sql`pg_catalog.gen_random_uuid()`)
+      .primaryKey(),
     identifier: text("identifier").notNull(),
     value: text("value").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
@@ -163,7 +172,9 @@ export const branch: PosTable<
     metadata: NullTextCol<"branch", "metadata">;
   }
 > = pgTable("branch", {
-  id: uuidPk().primaryKey(),
+  id: uuid("id")
+    .default(sql`pg_catalog.gen_random_uuid()`)
+    .primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   logo: text("logo"),
@@ -183,7 +194,9 @@ export const branchMember: PosTable<
 > = pgTable(
   "branch_member",
   {
-    id: uuidPk().primaryKey(),
+    id: uuid("id")
+      .default(sql`pg_catalog.gen_random_uuid()`)
+      .primaryKey(),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branch.id, { onDelete: "cascade" }),
@@ -214,7 +227,9 @@ export const branchInvitation: PosTable<
 > = pgTable(
   "branch_invitation",
   {
-    id: uuidPk().primaryKey(),
+    id: uuid("id")
+      .default(sql`pg_catalog.gen_random_uuid()`)
+      .primaryKey(),
     branchId: uuid("branch_id")
       .notNull()
       .references(() => branch.id, { onDelete: "cascade" }),
@@ -242,7 +257,9 @@ export const rateLimit: PosTable<
     lastRequest: BigIntNumCol<"rate_limit", "last_request">;
   }
 > = pgTable("rate_limit", {
-  id: uuidPk().primaryKey(),
+  id: uuid("id")
+    .default(sql`pg_catalog.gen_random_uuid()`)
+    .primaryKey(),
   key: text("key").notNull().unique(),
   count: integer("count").notNull(),
   lastRequest: bigint("last_request", { mode: "number" }).notNull(),

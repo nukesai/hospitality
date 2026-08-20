@@ -2,10 +2,9 @@ import { defineConfig, type UserConfig } from "tsdown";
 
 const config: UserConfig = defineConfig({
   name: "@nukesai-pos/frontend",
-  entry: {
-    "server/index": "src/server/index.ts",
-    "client/index": "src/client/index.ts",
-  },
+  // Every module is an entry: guarantees the dist/ tree mirrors src/ exactly
+  // (unbundle preserves directives per file; the exports map points into it).
+  entry: ["src/**/*.ts", "src/**/*.tsx", "!src/**/*.test.*"],
   root: "src",
   format: "esm",
   // Runs in the RSC layer (node) AND in the browser -> no runtime assumptions.

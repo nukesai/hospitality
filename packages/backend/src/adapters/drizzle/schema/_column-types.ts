@@ -26,7 +26,7 @@ type Base<
         : "string";
   columnType: TType;
   data: TData;
-  driverParam: TData extends number ? number | string : string;
+  driverParam: TData extends boolean ? boolean : TData extends number ? number | string : string;
   notNull: TNotNull;
   hasDefault: THasDefault;
   isPrimaryKey: TPk;

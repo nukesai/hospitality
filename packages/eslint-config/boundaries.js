@@ -74,9 +74,15 @@ export const serverZone = {
             group: [
               "client-only",
               "react-dom/client",
-              // "**/client" additionally catches barrel-directory imports like "../client".
-              "**/client",
-              "**/client/**",
+              // Relative-path shapes only: bare "**/client" would false-positive
+              // on packages like "better-auth/client". The import-x resolved-path
+              // zone rule covers aliased/indirect cases.
+              "./client",
+              "../client",
+              "../../client",
+              "./client/**",
+              "../client/**",
+              "../../client/**",
               "*.client",
               "*.client.*",
             ],
@@ -120,9 +126,15 @@ export const clientZone = {
             group: [
               ...SERVER_PKGS,
               "server-only",
-              // "**/server" additionally catches barrel-directory imports like "../server".
-              "**/server",
-              "**/server/**",
+              // Relative-path shapes only: bare "**/server" would false-positive
+              // on packages like "@trpc/server". The import-x resolved-path zone
+              // rule covers aliased/indirect cases.
+              "./server",
+              "../server",
+              "../../server",
+              "./server/**",
+              "../server/**",
+              "../../server/**",
               "*.server",
               "*.server.*",
             ],
@@ -195,7 +207,9 @@ export const isomorphicZone = {
 export const mixedStructureZone = {
   name: "nukes/boundary/mixed-structure",
   files: ["src/**/*.{ts,tsx}"],
-  ignores: ["src/client/**", "src/server/**"],
+  // i18n/ and locales/ are the documented NEUTRAL subpaths (no runtime pin,
+  // importable from both graphs); everything else must pick a side.
+  ignores: ["src/client/**", "src/server/**", "src/i18n/**", "src/locales/**"],
   rules: {
     "no-restricted-syntax": [
       "error",

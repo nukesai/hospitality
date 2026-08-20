@@ -29,8 +29,8 @@ export const createCacheFromEnv = async (
       await import("../adapters/cache/upstash.js");
     const options = {
       // Refined by the env schema; assert for the type system only.
-      url: env.UPSTASH_REDIS_REST_URL as string,
-      token: env.UPSTASH_REDIS_REST_TOKEN as string,
+      url: env.UPSTASH_REDIS_REST_URL!,
+      token: env.UPSTASH_REDIS_REST_TOKEN!,
     };
     const store: CacheStore = createUpstashCacheStore(options);
     return { cache: createCache(store, deps), kv: createUpstashKv(createUpstashKvClient(options)) };
@@ -39,7 +39,7 @@ export const createCacheFromEnv = async (
     const { createRedisCacheStore, createRedisKv, getSharedIoredisClient } =
       await import("../adapters/cache/redis.js");
     const client = getSharedIoredisClient({
-      url: env.CACHE_URL as string,
+      url: env.CACHE_URL!,
       onError: deps.onStoreError,
     });
     return { cache: createCache(createRedisCacheStore(client), deps), kv: createRedisKv(client) };

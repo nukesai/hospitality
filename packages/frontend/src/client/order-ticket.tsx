@@ -4,6 +4,8 @@ import { formatMoney } from "@nukesai-pos/common";
 import type { Order } from "@nukesai-pos/common/types";
 import { type ReactElement, useState } from "react";
 
+import { useTranslation } from "./i18n.js";
+
 export interface OrderTicketProps {
   readonly order: Order;
   /** Called when staff acknowledges the ticket. Serializable-props boundary. */
@@ -17,6 +19,7 @@ export interface OrderTicketProps {
  */
 export function OrderTicket({ order, onAcknowledge }: OrderTicketProps): ReactElement {
   const [acknowledged, setAcknowledged] = useState(false);
+  const { t } = useTranslation();
 
   const total = order.lines.reduce((sum, line) => sum + line.quantity * line.unitPriceMinor, 0);
 
@@ -41,7 +44,7 @@ export function OrderTicket({ order, onAcknowledge }: OrderTicketProps): ReactEl
           onAcknowledge?.(order.id);
         }}
       >
-        {acknowledged ? "Acknowledged" : "Acknowledge"}
+        {acknowledged ? t("order.acknowledged") : t("order.acknowledge")}
       </button>
     </article>
   );
