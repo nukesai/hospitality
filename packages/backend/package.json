@@ -29,6 +29,35 @@
       "browser": "./dist/_browser_guard.js",
       "default": "./dist/index.js"
     },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "default": "./dist/env.js"
+    },
+    "./bootstrap": {
+      "types": "./dist/bootstrap/create-pos.d.ts",
+      "browser": "./dist/_browser_guard.js",
+      "default": "./dist/bootstrap/create-pos.js"
+    },
+    "./trpc": {
+      "types": "./dist/trpc/index.d.ts",
+      "browser": "./dist/_browser_guard.js",
+      "default": "./dist/trpc/index.js"
+    },
+    "./next": {
+      "types": "./dist/next/index.d.ts",
+      "browser": "./dist/_browser_guard.js",
+      "default": "./dist/next/index.js"
+    },
+    "./cache": {
+      "types": "./dist/cache/index.d.ts",
+      "browser": "./dist/_browser_guard.js",
+      "default": "./dist/cache/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "browser": "./dist/_browser_guard.js",
+      "default": "./dist/auth/index.js"
+    },
     "./ports": {
       "types": "./dist/ports/index.d.ts",
       "default": "./dist/ports/index.js"
@@ -38,10 +67,33 @@
       "browser": "./dist/_browser_guard.js",
       "default": "./dist/adapters/demo/index.js"
     },
+    "./adapters/drizzle": {
+      "types": "./dist/adapters/drizzle/index.d.ts",
+      "browser": "./dist/_browser_guard.js",
+      "default": "./dist/adapters/drizzle/index.js"
+    },
+    "./adapters/cache-redis": {
+      "types": "./dist/adapters/cache/redis.d.ts",
+      "default": "./dist/adapters/cache/redis.js"
+    },
+    "./adapters/cache-upstash": {
+      "types": "./dist/adapters/cache/upstash.d.ts",
+      "default": "./dist/adapters/cache/upstash.js"
+    },
+    "./adapters/cache-memory": {
+      "types": "./dist/adapters/cache/memory.d.ts",
+      "default": "./dist/adapters/cache/memory.js"
+    },
+    "./adapters/logging": {
+      "types": "./dist/adapters/logging/pino.d.ts",
+      "browser": "./dist/_browser_guard.js",
+      "default": "./dist/adapters/logging/pino.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
+    "migrations",
     "src",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
@@ -52,18 +104,40 @@
   "scripts": {
     "build": "tsdown",
     "check-types": "tsc --noEmit",
+    "db:check": "drizzle-kit check",
+    "db:custom": "drizzle-kit generate --custom",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=../../.env scripts/db-migrate.ts",
+    "db:seed": "node --env-file-if-exists=../../.env scripts/db-seed.ts",
     "lint": "eslint ."
   },
   "dependencies": {
     "@nukesai-pos/common": "workspace:^",
-    "server-only": "catalog:"
+    "@scalar/nextjs-api-reference": "catalog:",
+    "@trpc/server": "catalog:",
+    "better-auth": "catalog:",
+    "drizzle-orm": "catalog:",
+    "drizzle-zod": "catalog:",
+    "nodemailer": "catalog:",
+    "pg": "catalog:",
+    "pino": "catalog:",
+    "server-only": "catalog:",
+    "superjson": "catalog:",
+    "trpc-to-openapi": "catalog:",
+    "zod": "catalog:",
+    "zod-openapi": "catalog:"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "catalog:",
     "@nukesai-pos/eslint-config": "workspace:*",
     "@nukesai-pos/typescript-config": "workspace:*",
     "@types/node": "catalog:",
+    "@types/nodemailer": "catalog:",
+    "@types/pg": "catalog:",
+    "@upstash/redis": "catalog:",
+    "drizzle-kit": "catalog:",
     "eslint": "catalog:",
+    "ioredis": "catalog:",
     "next": "catalog:",
     "publint": "catalog:",
     "tsdown": "catalog:",
@@ -71,7 +145,17 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
+    "@upstash/redis": "^1.38.2",
+    "ioredis": "^6.0.0",
     "next": "^16.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@upstash/redis": {
+      "optional": true
+    },
+    "ioredis": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20.19.0"
