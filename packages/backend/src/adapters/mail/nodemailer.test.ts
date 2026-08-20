@@ -56,6 +56,7 @@ const makeEnv = (overrides: Partial<PosEnv> = {}): PosEnv => ({
   ANALYTICS_WRITE_KEY: undefined,
   API_MAX_BODY_BYTES: 1_048_576,
   DEFAULT_LOCALE: "en",
+  ALLOW_MEMORY_CACHE_IN_PROD: false,
   ...overrides,
 });
 

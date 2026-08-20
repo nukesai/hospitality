@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PosEnv } from "../../env.js";
 import {
+  assertRlsEnforcedRole,
   createPosDb,
   dbConfigFromEnv,
   type PoolFactory,
@@ -41,6 +42,7 @@ const makeEnv = (overrides: Partial<PosEnv> = {}): PosEnv => ({
   ANALYTICS_DRIVER: "noop",
   API_MAX_BODY_BYTES: 1_048_576,
   DEFAULT_LOCALE: "en",
+  ALLOW_MEMORY_CACHE_IN_PROD: false,
   ...overrides,
 });
 
@@ -178,5 +180,29 @@ describe("createPosDb", () => {
     // No client ever connected, so end() resolves without touching the network.
     await posDb.close();
     expect(posDb.pool.totalCount).toBe(0);
+  });
+});
+
+describe("assertRlsEnforcedRole (R2 boot guard)", () => {
+  const poolWith = (row: Record<string, unknown> | undefined) =>
+    ({ query: async () => Promise.resolve({ rows: row === undefined ? [] : [row] }) }) as never;
+
+  it("passes for a compliant runtime role", async () => {
+    await expect(
+      assertRlsEnforcedRole(
+        poolWith({ rolname: "pos_app", rolsuper: false, rolbypassrls: false, owns_orders: false }),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it.each([
+    ["superuser", { rolname: "postgres", rolsuper: true, rolbypassrls: false, owns_orders: false }],
+    ["bypassrls", { rolname: "svc", rolsuper: false, rolbypassrls: true, owns_orders: false }],
+    [
+      "table owner",
+      { rolname: "pos_owner", rolsuper: false, rolbypassrls: false, owns_orders: true },
+    ],
+  ])("refuses to serve as %s", async (_label, row) => {
+    await expect(assertRlsEnforcedRole(poolWith(row))).rejects.toThrow(/REFUSING TO SERVE/);
   });
 });

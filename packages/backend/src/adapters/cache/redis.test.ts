@@ -300,3 +300,24 @@ describe("createRedisKv", () => {
     expect(ttlArg).toBe("45");
   });
 });
+
+describe("close clears the shared global (review fix)", () => {
+  it("removes the globalThis memo when closing the shared client", async () => {
+    const g = globalThis as { __nukesaiPosIoredis?: unknown };
+    const fake = new FakeRedisClient();
+    g.__nukesaiPosIoredis = fake;
+    const store = createRedisCacheStore(fake as never);
+    await store.close();
+    expect(g.__nukesaiPosIoredis).toBeUndefined();
+  });
+
+  it("leaves an unrelated global memo intact when closing a non-shared client", async () => {
+    const g = globalThis as { __nukesaiPosIoredis?: unknown };
+    const other = new FakeRedisClient();
+    g.__nukesaiPosIoredis = other;
+    const store = createRedisCacheStore(new FakeRedisClient() as never);
+    await store.close();
+    expect(g.__nukesaiPosIoredis).toBe(other);
+    delete g.__nukesaiPosIoredis;
+  });
+});

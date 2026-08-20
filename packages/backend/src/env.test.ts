@@ -75,6 +75,7 @@ describe("parseEnv", () => {
     const env = parseEnv(
       source({
         NODE_ENV: "production",
+        ALLOW_MEMORY_CACHE_IN_PROD: "true",
         BACKEND_RUNTIME: "vercel",
         DATABASE_URL: "postgresql://user:pass@db.internal:5432/pos",
         MIGRATE_DATABASE_URL: "postgresql://admin:pass@db.internal:5432/pos",

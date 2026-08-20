@@ -1,7 +1,8 @@
 import { DEMO_LOCATION_ID, toLocationId } from "@nukesai-pos/common";
 import type { CurrencyCode, Order } from "@nukesai-pos/common/types";
 import { createDemoOrderRepository } from "@nukesai-pos/backend/adapters/demo";
-import { OrderTicket } from "@nukesai-pos/frontend/client";
+import { OrderTicket, PosI18nProvider } from "@nukesai-pos/frontend/client";
+import { en } from "@nukesai-pos/frontend/locales/en";
 import { OrderSummary } from "@nukesai-pos/frontend/server";
 import type { ReactElement } from "react";
 
@@ -35,7 +36,9 @@ export default async function HomePage(): Promise<ReactElement> {
       ) : (
         <>
           <OrderSummary order={order} />
-          <OrderTicket order={order} />
+          <PosI18nProvider lng="en" resources={{ en }}>
+            <OrderTicket order={order} />
+          </PosI18nProvider>
         </>
       )}
     </main>

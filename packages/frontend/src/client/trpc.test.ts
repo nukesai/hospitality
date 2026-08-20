@@ -24,3 +24,15 @@ describe("query clients", () => {
     expect(getPosQueryClient()).toBe(getPosQueryClient());
   });
 });
+
+describe("resetPosQueryClient", () => {
+  it("clears and drops the browser singleton so the next account starts fresh", async () => {
+    const { getPosQueryClient, resetPosQueryClient } = await import("./trpc.js");
+    const before = getPosQueryClient();
+    resetPosQueryClient();
+    expect(getPosQueryClient()).not.toBe(before);
+    // idempotent when no singleton exists
+    resetPosQueryClient();
+    resetPosQueryClient();
+  });
+});

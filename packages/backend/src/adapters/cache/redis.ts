@@ -98,6 +98,11 @@ export const createRedisCacheStore = (client: Redis): CacheStore => ({
 
   close: async (): Promise<void> => {
     await client.quit();
+    // The client is (usually) the globalThis-shared one that ALSO backs the
+    // KvPort (auth secondary storage, rate limiting) — clear the memo so a
+    // later bootstrap builds a fresh client instead of reusing a dead one.
+    const g = globalThis as GlobalWithRedis;
+    if (g.__nukesaiPosIoredis === client) delete g.__nukesaiPosIoredis;
   },
 });
 

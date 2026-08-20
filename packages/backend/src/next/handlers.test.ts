@@ -92,7 +92,11 @@ describe("createTrpcHandlers", () => {
     const response = await POST(
       new Request(`${TRUSTED}/api/trpc/health.ping`, {
         method: "POST",
-        headers: { "content-type": "application/json", origin: TRUSTED },
+        headers: {
+          "content-length": "512",
+          "content-type": "application/json",
+          origin: TRUSTED,
+        },
         body: JSON.stringify({ n: 7 }),
       }),
     );
@@ -106,7 +110,10 @@ describe("createTrpcHandlers", () => {
     const response = await POST(
       new Request(`${TRUSTED}/api/trpc/health.ping`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-length": "512",
+          "content-type": "application/json",
+        },
         body: JSON.stringify({ n: 1 }),
       }),
     );
@@ -119,7 +126,11 @@ describe("createTrpcHandlers", () => {
     const response = await POST(
       new Request(`${TRUSTED}/api/trpc/health.ping`, {
         method: "POST",
-        headers: { "content-type": "application/json", origin: "http://evil.example" },
+        headers: {
+          "content-length": "512",
+          "content-type": "application/json",
+          origin: "http://evil.example",
+        },
         body: JSON.stringify({ n: 1 }),
       }),
     );
@@ -194,7 +205,10 @@ describe("createOpenApiHandlers", () => {
     const forbidden = await handlers.PUT(
       new Request(`${TRUSTED}/api/rest/health`, {
         method: "PUT",
-        headers: { origin: "http://evil.example" },
+        headers: {
+          "content-length": "512",
+          origin: "http://evil.example",
+        },
       }),
     );
     expect(forbidden.status).toBe(403);
@@ -268,5 +282,55 @@ describe("createDocsHandler", () => {
     const response = await handler();
     const html = await response.text();
     expect(html).toContain("https://cdn.example/scalar.js");
+  });
+});
+
+describe("body-length guard (chunked-transfer bypass fix)", () => {
+  it("returns 411 when a body arrives without a parseable Content-Length", async () => {
+    const { cfg } = makeCfg();
+    const handlers = createTrpcHandlers(router, cfg);
+    const chunked = new Request("http://localhost/api/trpc/health.check", {
+      method: "POST",
+      headers: { "content-type": "application/json", "content-length": "not-a-number" },
+      body: JSON.stringify({}),
+    });
+    // undici normalizes CL for string bodies; force the invalid header back on.
+    chunked.headers.set("content-length", "not-a-number");
+    const response = await handlers.POST(chunked);
+    expect(response.status).toBe(411);
+  });
+});
+
+describe("body-length guard: absent Content-Length", () => {
+  it("returns 411 for a streamed body with no declared length", async () => {
+    const { cfg } = makeCfg();
+    const handlers = createOpenApiHandlers(router, cfg);
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("{}"));
+        controller.close();
+      },
+    });
+    const request = new Request("http://localhost/api/rest/health", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: stream,
+      duplex: "half",
+    });
+    request.headers.delete("content-length");
+    const response = await handlers.POST(request);
+    expect(response.status).toBe(411);
+  });
+});
+
+describe("body-length guard: bodyless state-changing request", () => {
+  it("skips the length check when the request has no body", async () => {
+    const { cfg } = makeCfg();
+    const handlers = createOpenApiHandlers(router, cfg);
+    const response = await handlers.DELETE(
+      new Request("http://localhost/api/rest/nope", { method: "DELETE" }),
+    );
+    // reaches the router (404 for an unknown path) instead of 411
+    expect(response.status).toBe(404);
   });
 });

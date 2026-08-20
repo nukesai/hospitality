@@ -34,7 +34,8 @@ export default async function LocalePage({
   readonly params: Promise<{ readonly lng: string }>;
 }): Promise<ReactElement> {
   const { lng } = await params;
-  if (!(lng in resources)) notFound();
+  // Object.hasOwn: the `in` operator walks the prototype chain (/constructor would pass).
+  if (!Object.hasOwn(resources, lng)) notFound();
   const locale = lng as Lng;
   const t = serverI18n.getT(locale);
 

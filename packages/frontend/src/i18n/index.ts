@@ -1,5 +1,4 @@
 import { createInstance, type i18n, type Resource, type ResourceLanguage } from "i18next";
-import { initReactI18next } from "react-i18next/initReactI18next";
 
 export type PosResourceBundle = ResourceLanguage;
 
@@ -21,7 +20,11 @@ export const POS_DEFAULT_NS = "pos";
  */
 export const createPosI18n = (config: PosI18nConfig): i18n => {
   const instance = createInstance();
-  void instance.use(initReactI18next).init({
+  // Deliberately NOT .use(initReactI18next): that would overwrite react-i18next's
+  // MODULE-GLOBAL default instance on every call (review-caught), silently
+  // coupling per-request server instances. Instances travel via I18nextProvider
+  // (client) and getFixedT (server) — no global registration needed.
+  void instance.init({
     lng: config.lng,
     fallbackLng: config.fallbackLng ?? "en",
     resources: config.resources,

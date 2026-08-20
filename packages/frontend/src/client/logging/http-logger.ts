@@ -27,6 +27,42 @@ const ORDER: readonly LogLevel[] = ["trace", "debug", "info", "warn", "error", "
 
 export type HttpLogger = LoggerPort & { readonly dispose: () => void };
 
+interface SharedSink {
+  readonly push: (line: Line) => void;
+  readonly send: () => Promise<void>;
+  readonly dispose: () => void;
+}
+
+const makeLogger = (
+  sink: SharedSink,
+  bindings: LogBindings,
+  clock: () => Date,
+  min: number,
+): HttpLogger => {
+  const push =
+    (level: LogLevel) =>
+    (msg: string, fields?: LogFields): void => {
+      if (ORDER.indexOf(level) < min) return;
+      sink.push({ level, msg, time: clock().toISOString(), fields: { ...bindings, ...fields } });
+    };
+  return {
+    trace: push("trace"),
+    debug: push("debug"),
+    info: push("info"),
+    warn: push("warn"),
+    error: push("error"),
+    fatal: push("fatal"),
+    // Children are lightweight views over the SAME buffer and timer — a child
+    // per request must never start its own interval (timer-leak, review-caught).
+    child: (extra: LogBindings): HttpLogger =>
+      makeLogger(sink, { ...bindings, ...extra }, clock, min),
+    flush: async (): Promise<void> => sink.send(),
+    dispose: (): void => {
+      sink.dispose();
+    },
+  };
+};
+
 export const createHttpLogger = (
   config: HttpLoggerConfig,
   bindings: LogBindings = {},
@@ -55,30 +91,16 @@ export const createHttpLogger = (
     void send();
   }, config.flushIntervalMs);
 
-  const push =
-    (level: LogLevel) =>
-    (msg: string, fields?: LogFields): void => {
-      if (ORDER.indexOf(level) < min) return;
-      buffer.push({
-        level,
-        msg,
-        time: clock().toISOString(),
-        fields: { ...bindings, ...fields },
-      });
+  const sink: SharedSink = {
+    push: (line: Line): void => {
+      buffer.push(line);
       if (buffer.length > config.maxBuffer) buffer.shift();
-    };
-
-  return {
-    trace: push("trace"),
-    debug: push("debug"),
-    info: push("info"),
-    warn: push("warn"),
-    error: push("error"),
-    fatal: push("fatal"),
-    child: (extra: LogBindings): HttpLogger => createHttpLogger(config, { ...bindings, ...extra }),
-    flush: async (): Promise<void> => send(),
+    },
+    send,
     dispose: (): void => {
       clearInterval(timer);
     },
   };
+
+  return makeLogger(sink, bindings, clock, min);
 };

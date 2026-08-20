@@ -47,6 +47,8 @@ const envSchema = z
     ANALYTICS_DRIVER: z.enum(["noop", "webhook"]).default("noop"),
     ANALYTICS_WRITE_KEY: z.string().min(1).optional(),
     API_MAX_BODY_BYTES: z.coerce.number().int().min(1024).default(1_048_576),
+    /** Explicit opt-in: memory cache in production disables shared invalidation AND API rate limiting. */
+    ALLOW_MEMORY_CACHE_IN_PROD: z.stringbool().default(false),
     DEFAULT_LOCALE: z.string().min(2).default("en"),
   })
   .refine((e) => e.CACHE_DRIVER !== "ioredis" || e.CACHE_URL !== undefined, {
@@ -65,7 +67,16 @@ const envSchema = z
   .refine((e) => e.MAIL_DRIVER !== "smtp" || e.SMTP_HOST !== undefined, {
     error: "MAIL_DRIVER=smtp requires SMTP_HOST",
     path: ["SMTP_HOST"],
-  });
+  })
+  .refine(
+    (e) =>
+      e.NODE_ENV !== "production" || e.CACHE_DRIVER !== "memory" || e.ALLOW_MEMORY_CACHE_IN_PROD,
+    {
+      error:
+        "CACHE_DRIVER=memory in production disables shared cache invalidation AND API rate limiting; set ALLOW_MEMORY_CACHE_IN_PROD=true to accept that explicitly",
+      path: ["CACHE_DRIVER"],
+    },
+  );
 
 /**
  * Hand-written (NOT z.infer): inferring the exported type from the schema drags
@@ -102,6 +113,7 @@ export interface PosEnv {
   readonly ANALYTICS_DRIVER: "noop" | "webhook";
   readonly ANALYTICS_WRITE_KEY?: string | undefined;
   readonly API_MAX_BODY_BYTES: number;
+  readonly ALLOW_MEMORY_CACHE_IN_PROD: boolean;
   readonly DEFAULT_LOCALE: string;
 }
 

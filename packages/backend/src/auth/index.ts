@@ -91,7 +91,10 @@ export const buildAuthOptions = (deps: CreateAuthDeps): PosAuthOptions => ({
     // With secondaryStorage set, sessions would live ONLY in Redis by default.
     // Keep Postgres as source of truth for RLS/audit:
     storeSessionInDatabase: true,
-    cookieCache: { enabled: true, maxAge: 60 * 5 },
+    // 60s: bounds the session-revocation blind spot (cookieCache skips the DB).
+    // Branch procedures re-check membership per request via getActiveMember, so
+    // ROLE changes apply immediately; only outright revocation waits out this TTL.
+    cookieCache: { enabled: true, maxAge: 60 },
   },
   rateLimit: {
     enabled: true,

@@ -90,8 +90,16 @@ export function posErrorFormatter(opts: {
   const zod = error.cause instanceof ZodError ? z.flattenError(error.cause) : null;
   const appError = error.cause instanceof AppError ? error.cause : null;
   const { stack: _stack, ...data } = shape.data;
+  // tRPC copies cause.message onto unknown thrown errors — NEVER ship internals:
+  // outside dev, anything that is not an AppError/ZodError collapses to the
+  // generic safe key (the original is logged by the onError hook).
+  const safeMessage =
+    ctx?.deps.isDev === true || appError !== null || zod !== null
+      ? shape.message
+      : "errors.internal";
   return {
     ...shape,
+    message: safeMessage,
     data: {
       ...data,
       ...(ctx?.deps.isDev === true ? { stack: _stack } : {}), // never leak stacks in prod

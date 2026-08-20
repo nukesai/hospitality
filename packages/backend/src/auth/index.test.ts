@@ -102,7 +102,7 @@ describe("buildAuthOptions", () => {
       updateAge: 60 * 60 * 24,
       freshAge: 60 * 15,
       storeSessionInDatabase: true,
-      cookieCache: { enabled: true, maxAge: 60 * 5 },
+      cookieCache: { enabled: true, maxAge: 60 },
     });
   });
 

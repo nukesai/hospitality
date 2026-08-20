@@ -64,7 +64,7 @@ describe("createHttpLogger", () => {
     logger.dispose();
   });
 
-  it("child loggers merge bindings and share config; dispose stops the timer", async () => {
+  it("child loggers merge bindings, share ONE buffer+timer, and dispose cascades", async () => {
     const fetchFn = vi.fn().mockResolvedValue(new Response(null));
     const parent = createHttpLogger(config({ fetchFn }), { app: "pos" });
     const child = parent.child({ requestId: "r9" }) as ReturnType<typeof createHttpLogger>;
@@ -74,8 +74,8 @@ describe("createHttpLogger", () => {
       fields: Record<string, unknown>;
     }[];
     expect(body[0]?.fields).toEqual({ app: "pos", requestId: "r9" });
+    // children share the parent's sink — one dispose stops the single timer
     child.dispose();
-    parent.dispose();
     child.trace("below level — ignored");
     await vi.advanceTimersByTimeAsync(20_000);
     expect(fetchFn).toHaveBeenCalledTimes(1);

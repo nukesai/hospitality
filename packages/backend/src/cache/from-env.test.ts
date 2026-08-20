@@ -36,18 +36,24 @@ describe("createCacheFromEnv", () => {
 
   it("fires the production fallback warning when memory is used in production", async () => {
     const onMemoryFallbackInProduction = vi.fn<() => void>();
-    const { kv } = await createCacheFromEnv(makeEnv({ NODE_ENV: "production" }), {
-      onStoreError: vi.fn<(error: Error) => void>(),
-      onMemoryFallbackInProduction,
-    });
+    const { kv } = await createCacheFromEnv(
+      makeEnv({ NODE_ENV: "production", ALLOW_MEMORY_CACHE_IN_PROD: "true" }),
+      {
+        onStoreError: vi.fn<(error: Error) => void>(),
+        onMemoryFallbackInProduction,
+      },
+    );
     expect(kv).toBeNull();
     expect(onMemoryFallbackInProduction).toHaveBeenCalledTimes(1);
   });
 
   it("tolerates a missing fallback warning callback in production", async () => {
-    const { kv } = await createCacheFromEnv(makeEnv({ NODE_ENV: "production" }), {
-      onStoreError: vi.fn<(error: Error) => void>(),
-    });
+    const { kv } = await createCacheFromEnv(
+      makeEnv({ NODE_ENV: "production", ALLOW_MEMORY_CACHE_IN_PROD: "true" }),
+      {
+        onStoreError: vi.fn<(error: Error) => void>(),
+      },
+    );
     expect(kv).toBeNull();
   });
 

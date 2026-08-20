@@ -1,5 +1,5 @@
 import type { LogFields, LoggerPort } from "@nukesai-pos/common";
-import type pg from "pg";
+import pg from "pg";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MailPort } from "../ports/mail.js";
@@ -198,12 +198,23 @@ describe("createNukesPos", () => {
   it("warns when production falls back to the memory cache driver", async () => {
     const { logger, records } = createRecordingLogger();
     const { mail } = createRecordingMail();
+    // Production path now runs the R2 boot guard (a real query) — stub it to a
+    // compliant pos_app-shaped role so no live DB is needed.
+    const querySpy = vi.spyOn(pg.Pool.prototype, "query").mockResolvedValue({
+      rows: [{ rolname: "pos_app", rolsuper: false, rolbypassrls: false, owns_orders: false }],
+    } as never);
     const pos = await createNukesPos({
-      env: { ...baseEnv, NODE_ENV: "production", CACHE_DRIVER: "memory" },
+      env: {
+        ...baseEnv,
+        NODE_ENV: "production",
+        ALLOW_MEMORY_CACHE_IN_PROD: "true",
+        CACHE_DRIVER: "memory",
+      },
       logger,
       mail,
     });
 
+    querySpy.mockRestore();
     expect(records.some((r) => r.level === "warn" && r.message === "cache.memory-fallback")).toBe(
       true,
     );

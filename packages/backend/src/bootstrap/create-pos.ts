@@ -4,7 +4,12 @@ import type { AnalyticsPort, LoggerPort } from "@nukesai-pos/common";
 import { noopAnalytics } from "@nukesai-pos/common/observability";
 import type pg from "pg";
 
-import { createPosDb, dbConfigFromEnv, type PosDatabase } from "../adapters/drizzle/client.js";
+import {
+  assertRlsEnforcedRole,
+  createPosDb,
+  dbConfigFromEnv,
+  type PosDatabase,
+} from "../adapters/drizzle/client.js";
 import * as schema from "../adapters/drizzle/schema/index.js";
 import { createSecondaryStorage } from "../adapters/auth/secondary-storage.js";
 import { createPinoLogger } from "../adapters/logging/pino.js";
@@ -66,6 +71,8 @@ export async function createNukesPos(options: CreateNukesPosOptions): Promise<Nu
     schema,
   );
   options.onPoolCreated?.(posDb.pool);
+  // R2 boot guard: in production, refuse to serve on an RLS-exempt role.
+  if (env.NODE_ENV === "production") await assertRlsEnforcedRole(posDb.pool);
 
   const { cache, kv } = await createCacheFromEnv(env, {
     onStoreError: (error) => {
@@ -73,7 +80,8 @@ export async function createNukesPos(options: CreateNukesPosOptions): Promise<Nu
     },
     onMemoryFallbackInProduction: () => {
       logger.warn("cache.memory-fallback", {
-        message: "CACHE_DRIVER=memory in production: no shared invalidation across instances",
+        message:
+          "CACHE_DRIVER=memory in production: no shared invalidation across instances AND API rate limiting is disabled (kv unavailable)",
       });
     },
     ...(options.waitUntil !== undefined ? { waitUntil: options.waitUntil } : {}),

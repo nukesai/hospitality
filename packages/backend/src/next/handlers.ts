@@ -26,8 +26,16 @@ function guard(req: Request, cfg: ApiHandlerConfig): Response | null {
     if (origin !== null && !cfg.trustedOrigins.includes(origin)) {
       return new Response("Forbidden origin", { status: 403 });
     }
-    if (Number(req.headers.get("content-length") ?? "0") > cfg.maxBodyBytes) {
-      return new Response("Payload too large", { status: 413 });
+    // A missing/invalid Content-Length (chunked transfer) would bypass a
+    // header-based cap entirely — require a declared, parseable length.
+    const rawLength = req.headers.get("content-length");
+    if (req.body !== null) {
+      if (rawLength === null || !/^\d+$/.test(rawLength)) {
+        return new Response("Length Required", { status: 411 });
+      }
+      if (Number(rawLength) > cfg.maxBodyBytes) {
+        return new Response("Payload too large", { status: 413 });
+      }
     }
   }
   return null;

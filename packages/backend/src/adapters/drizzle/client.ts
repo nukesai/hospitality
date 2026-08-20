@@ -52,6 +52,36 @@ const globalStore = globalThis as typeof globalThis & { [GLOBAL_KEY]?: DbGlobal 
 
 export type PoolFactory = (options: pg.PoolConfig) => pg.Pool; // test seam
 
+/**
+ * R2 boot guard: RLS is only meaningful when the runtime role cannot bypass it.
+ * Refuses to serve in production if the connected role is superuser, BYPASSRLS,
+ * or the owner of the app tables (owners are RLS-exempt — the migration channel).
+ */
+export async function assertRlsEnforcedRole(pool: pg.Pool): Promise<void> {
+  const result = await pool.query<{
+    rolname: string;
+    rolsuper: boolean;
+    rolbypassrls: boolean;
+    owns_orders: boolean;
+  }>(
+    `select r.rolname, r.rolsuper, r.rolbypassrls,
+            exists (select 1 from pg_tables t
+                    where t.schemaname = 'public' and t.tablename = 'orders'
+                      and t.tableowner = r.rolname) as owns_orders
+     from pg_roles r where r.rolname = current_user`,
+  );
+  const role = result.rows[0];
+  /* v8 ignore next -- current_user always resolves; defensive */
+  if (role === undefined) throw new Error("Could not resolve current_user");
+  if (role.rolsuper || role.rolbypassrls || role.owns_orders) {
+    throw new Error(
+      `[@nukesai-pos/backend] REFUSING TO SERVE: role "${role.rolname}" bypasses RLS `
+        + `(superuser=${String(role.rolsuper)}, bypassrls=${String(role.rolbypassrls)}, `
+        + `table owner=${String(role.owns_orders)}). Point DATABASE_URL at the pos_app role.`,
+    );
+  }
+}
+
 export function createPosDb(
   config: PosDbConfig,
   schemaModule: PosSchema,

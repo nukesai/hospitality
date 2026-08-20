@@ -86,7 +86,7 @@ test.describe("API flow (live stack)", () => {
     for (const item of after.result.data.json.items) expect(item.branchId).toBe(branchId);
   });
 
-  test("guards: 403 on branch mismatch, 422 on bad input, 500 on undeclared mutation", async () => {
+  test("guards: 403 on branch mismatch, 422 on bad input, canary absent in prod", async () => {
     const mismatch = await api.get("/api/trpc/orders.list?input=%7B%22json%22%3A%7B%7D%7D", {
       headers: { "x-branch-id": "00000000-0000-4000-8000-00000000dead" },
     });
@@ -97,8 +97,10 @@ test.describe("API flow (live stack)", () => {
     });
     expect(invalid.status()).toBe(422);
 
+    // The cache-discipline canary is DEV-ONLY (review fix): a production build
+    // must not expose it at all. enforceCacheMeta itself is unit-tested.
     const canary = await api.post("/api/trpc/orders._cacheCanary", { data: { json: {} } });
-    expect(canary.status()).toBe(500);
+    expect(canary.status()).toBe(404);
   });
 
   test("unauthenticated tRPC call is 401", async ({ playwright, baseURL }) => {

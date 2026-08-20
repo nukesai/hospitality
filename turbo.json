@@ -63,6 +63,11 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "@nukesai-pos/example#check-types": {
+      "dependsOn": ["build", "^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/typescript-config/**"],
+      "outputs": []
     }
   }
 }

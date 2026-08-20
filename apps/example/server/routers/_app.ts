@@ -53,11 +53,15 @@ export const appRouter = t.router({
         }
         return updated;
       }),
-    // Deliberately-undeclared mutation would fail enforceCacheMeta at runtime;
-    // the integration suite asserts that (invalidation discipline canary).
-    _cacheCanary: branchProcedure()
-      .input(z.object({}))
-      .mutation(() => ({ ok: true }) as const),
+    // Deliberately-undeclared mutation proving enforceCacheMeta fires (the
+    // invalidation-discipline canary). NEVER shipped to production.
+    ...(process.env.NODE_ENV !== "production"
+      ? {
+          _cacheCanary: branchProcedure()
+            .input(z.object({}))
+            .mutation(() => ({ ok: true }) as const),
+        }
+      : {}),
   }),
 });
 

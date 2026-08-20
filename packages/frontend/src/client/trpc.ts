@@ -46,6 +46,16 @@ export function createPosQueryClient(): QueryClient {
 let browserQueryClient: QueryClient | undefined;
 
 /**
+ * MUST be called on sign-out (and on branch switch if stale cross-branch data
+ * is unacceptable): the browser singleton otherwise serves one account's cached
+ * queries to the next account on the same device (review-caught).
+ */
+export function resetPosQueryClient(): void {
+  browserQueryClient?.clear();
+  browserQueryClient = undefined;
+}
+
+/**
  * SSR-safe accessor: a fresh client per server render (no cross-request
  * leakage), a singleton in the browser (no state loss on re-render).
  */
