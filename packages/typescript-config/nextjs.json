@@ -1,12 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@nukesai-pos/typescript-config/nextjs",
   "extends": "./base.json",
   "compilerOptions": {
-    "plugins": [{ "name": "next" }],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "module": "esnext",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "allowJs": true,
-    "jsx": "preserve",
-    "noEmit": true
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "erasableSyntaxOnly": false,
+    "types": ["node", "react"],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   }
 }

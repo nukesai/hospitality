@@ -1,0 +1,68 @@
+PROPRIETARY SOFTWARE LICENSE
+
+Copyright (c) 2026 Nukes AI & Software Solution <info@nukesai.com>
+All rights reserved.
+
+1. DEFINITIONS
+   "Software" means this package, its source code, compiled artifacts,
+   type declarations, documentation and any accompanying assets.
+   "Licensor" means Nukes AI & Software Solution.
+   "Licensee" means the individual or legal entity that has entered into a
+   valid, current, written commercial agreement with the Licensor covering
+   the Software.
+
+2. GRANT
+   Subject to a valid written agreement with the Licensor and to full payment
+   of all applicable fees, the Licensor grants the Licensee a non-exclusive,
+   non-transferable, non-sublicensable, revocable licence to install and use
+   the Software in object and source form solely for the Licensee's internal
+   business purposes and solely for the deployments identified in that
+   agreement.
+
+3. RESTRICTIONS
+   Except to the extent expressly permitted by that written agreement or by
+   mandatory applicable law, the Licensee shall not:
+   (a) copy, publish, distribute, sublicense, sell, rent, lease, lend or
+       otherwise make the Software available to any third party;
+   (b) create derivative works of, modify, translate or adapt the Software;
+   (c) reverse engineer, decompile or disassemble the Software;
+   (d) remove, obscure or alter any copyright, trademark or other proprietary
+       notice contained in the Software;
+   (e) use the Software to build, train or evaluate a competing product or
+       service.
+
+4. NO OPEN SOURCE LICENCE
+   The Software is NOT open source and is NOT free software. Publication of
+   the Software to a package registry under restricted access does not grant
+   any licence beyond that described in Section 2. Any use without a valid
+   written agreement with the Licensor is unauthorised and infringing.
+
+5. OWNERSHIP
+   The Software is licensed, not sold. The Licensor retains all right, title
+   and interest in and to the Software, including all intellectual property
+   rights therein.
+
+6. TERMINATION
+   This licence terminates automatically and immediately, without notice, on
+   any breach of these terms or on termination or expiry of the applicable
+   written agreement. On termination the Licensee shall cease all use of the
+   Software and destroy all copies in its possession or control.
+
+7. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NONINFRINGEMENT.
+
+8. LIMITATION OF LIABILITY
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+   LICENSOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+   PUNITIVE OR CONSEQUENTIAL DAMAGES, OR FOR ANY LOSS OF PROFITS, REVENUE,
+   DATA OR GOODWILL, ARISING OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS
+   USE, WHETHER IN CONTRACT, TORT OR OTHERWISE, EVEN IF ADVISED OF THE
+   POSSIBILITY OF SUCH DAMAGES.
+
+9. GOVERNING LAW
+   This licence is governed by the laws of the jurisdiction in which the
+   Licensor is established, without regard to its conflict of law provisions.
+
+For licensing enquiries contact: info@nukesai.com

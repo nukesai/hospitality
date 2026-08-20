@@ -1,0 +1,47 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "treatConfigHintsAsErrors": true,
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.mjs", "e2e/**/*.spec.ts"],
+      "project": ["scripts/**/*.mjs", "e2e/**/*.ts", "*.{js,ts}"]
+    },
+    "apps/example": {
+      "entry": ["app/**/{page,layout}.tsx"],
+      "project": ["**/*.{ts,tsx}"]
+    },
+    "packages/common": {
+      "project": ["src/**/*.ts!"]
+    },
+    "packages/backend": {
+      "ignoreDependencies": ["next"],
+      "project": ["src/**/*.ts!"]
+    },
+    "packages/frontend": {
+      "ignoreDependencies": ["next"],
+      "project": ["src/**/*.{ts,tsx}!"]
+    },
+    "packages/cli": {
+      "project": ["src/**/*.ts!"]
+    },
+    "packages/eslint-config": {
+      "project": ["*.js"]
+    },
+    "packages/typescript-config": {
+      "ignoreDependencies": ["next", "react"]
+    }
+  },
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "devDependencies": "error",
+    "unlisted": "error",
+    "binaries": "error",
+    "unresolved": "error",
+    "exports": "error",
+    "types": "error",
+    "duplicates": "error",
+    "enumMembers": "off",
+    "namespaceMembers": "off"
+  }
+}

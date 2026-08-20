@@ -1,0 +1,5 @@
+{
+  "// tsdk": "TS7 ships no tsserver and no language-service plugins, so the Next.js editor plugin only works on a TS 5/6 tsserver. Point the editor at the TS6 alias that eslint-config carries. CI and builds still use TS 7.0.2.",
+  "typescript.tsdk": "packages/eslint-config/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}

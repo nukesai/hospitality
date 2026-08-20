@@ -1,0 +1,8 @@
+/* Consumer usage:  @import "@nukesai-pos/frontend/styles.css";
+ *
+ * Tailwind v4 ignores node_modules by default, so the package registers its own
+ * built output as a scan source. Paths in @source are resolved relative to the
+ * stylesheet that contains them (verified against tailwindcss 4.x through pnpm
+ * symlinks).
+ */
+@source "./dist";

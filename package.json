@@ -1,20 +1,50 @@
 {
-  "name": "@nukesai/monorepo",
+  "name": "@nukesai-pos/monorepo",
+  "version": "0.0.0",
   "private": true,
+  "description": "Nukes AI point-of-sale platform monorepo.",
+  "license": "UNLICENSED",
+  "author": "Nukes AI & Software Solution <info@nukesai.com>",
+  "type": "module",
   "scripts": {
     "build": "turbo run build",
+    "changeset": "changeset",
+    "check-types": "turbo run check-types",
+    "coverage:canary": "node scripts/assert-coverage-gate-fails.mjs",
     "dev": "turbo run dev",
+    "e2e": "playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "knip": "knip",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "prepare": "husky",
+    "release": "turbo run build && pnpm publish -r --no-git-checks --access restricted --report-summary",
+    "size": "size-limit",
+    "syncpack:lint": "syncpack lint",
+    "test": "turbo run build --output-logs=errors-only && vitest run --coverage",
+    "version-packages": "changeset version && pnpm install --lockfile-only"
   },
   "devDependencies": {
-    "prettier": "^3.7.4",
-    "turbo": "^2.10.11",
-    "typescript": "5.9.2"
+    "@changesets/cli": "catalog:",
+    "@commitlint/cli": "catalog:",
+    "@commitlint/config-conventional": "catalog:",
+    "@playwright/test": "catalog:",
+    "@size-limit/preset-small-lib": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "husky": "catalog:",
+    "knip": "catalog:",
+    "lint-staged": "catalog:",
+    "prettier": "catalog:",
+    "prettier-plugin-packagejson": "catalog:",
+    "size-limit": "catalog:",
+    "syncpack": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "packageManager": "pnpm@11.10.0",
   "engines": {
-    "node": ">=24"
+    "node": ">=24.18.0",
+    "pnpm": ">=11.10.0"
   }
 }

@@ -1,0 +1,15 @@
+{
+  "extends": "@nukesai-pos/typescript-config/react-library.json",
+  "compilerOptions": {
+    "types": ["react", "node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "test/**/*.ts",
+    "tsdown.config.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

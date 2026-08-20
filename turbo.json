@@ -1,17 +1,25 @@
 {
-  "$schema": "https://turborepo.dev/schema.json",
+  "$schema": "https://turborepo.com/schema.json",
   "ui": "tui",
+  "globalDependencies": ["pnpm-lock.yaml", "pnpm-workspace.yaml"],
+  "globalEnv": ["NODE_ENV", "CI"],
+  "globalPassThroughEnv": ["NPM_TOKEN", "GITHUB_TOKEN"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.test.ts", "!**/*.test.tsx", "!**/test/**"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "env": ["NODE_ENV"]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/eslint-config/**"],
+      "outputs": []
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/typescript-config/**"],
+      "outputs": []
     },
     "dev": {
       "cache": false,

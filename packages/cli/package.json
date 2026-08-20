@@ -1,0 +1,69 @@
+{
+  "name": "@nukesai-pos/cli",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Scaffold Nukes POS into an existing Next.js 16 application.",
+  "keywords": [
+    "point-of-sale",
+    "pos",
+    "restaurant",
+    "nukesai",
+    "cli"
+  ],
+  "bugs": {
+    "email": "info@nukesai.com"
+  },
+  "license": "UNLICENSED",
+  "author": {
+    "name": "Nukes AI & Software Solution",
+    "email": "info@nukesai.com"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "nukes-pos": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@clack/prompts": "catalog:",
+    "commander": "catalog:",
+    "comment-json": "catalog:",
+    "magicast": "catalog:",
+    "picocolors": "catalog:",
+    "tinyglobby": "catalog:"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/core": "catalog:",
+    "@nukesai-pos/eslint-config": "workspace:*",
+    "@nukesai-pos/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "publint": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "provenance": false,
+    "registry": "https://registry.npmjs.org/",
+    "tag": "latest"
+  }
+}

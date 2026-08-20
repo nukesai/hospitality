@@ -1,0 +1,30 @@
+{
+  "name": "@nukesai-pos/example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "check-types": "next typegen && tsc --noEmit",
+    "dev": "next dev",
+    "lint": "eslint .",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@nukesai-pos/backend": "workspace:^",
+    "@nukesai-pos/common": "workspace:^",
+    "@nukesai-pos/frontend": "workspace:^",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@nukesai-pos/eslint-config": "workspace:*",
+    "@nukesai-pos/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:"
+  }
+}

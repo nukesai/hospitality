@@ -1,0 +1,79 @@
+{
+  "name": "@nukesai-pos/backend",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Nukes AI POS server-side business logic and data-access ports. SERVER ONLY.",
+  "keywords": [
+    "point-of-sale",
+    "pos",
+    "restaurant",
+    "nukesai"
+  ],
+  "bugs": {
+    "email": "info@nukesai.com"
+  },
+  "license": "UNLICENSED",
+  "author": {
+    "name": "Nukes AI & Software Solution",
+    "email": "info@nukesai.com"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/_browser_guard.js",
+      "default": "./dist/index.js"
+    },
+    "./ports": {
+      "types": "./dist/ports/index.d.ts",
+      "default": "./dist/ports/index.js"
+    },
+    "./adapters/demo": {
+      "types": "./dist/adapters/demo/index.d.ts",
+      "browser": "./dist/_browser_guard.js",
+      "default": "./dist/adapters/demo/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@nukesai-pos/common": "workspace:^",
+    "server-only": "catalog:"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/core": "catalog:",
+    "@nukesai-pos/eslint-config": "workspace:*",
+    "@nukesai-pos/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "next": "catalog:",
+    "publint": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "next": "^16.3.0"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "provenance": false,
+    "registry": "https://registry.npmjs.org/",
+    "tag": "latest"
+  }
+}

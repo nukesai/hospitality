@@ -1,0 +1,14 @@
+{
+  "extends": "@nukesai-pos/typescript-config/library.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "tsdown.config.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

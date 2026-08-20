@@ -1,0 +1,32 @@
+{
+  "versionGroups": [
+    {
+      "label": "Published internal deps use workspace:^ (publishes as ^x.y.z)",
+      "dependencies": ["@nukesai-pos/common", "@nukesai-pos/backend", "@nukesai-pos/frontend"],
+      "dependencyTypes": ["prod"],
+      "pinVersion": "workspace:^"
+    },
+    {
+      "label": "Internal dev/config deps use workspace:*",
+      "dependencies": ["@nukesai-pos/**"],
+      "dependencyTypes": ["dev"],
+      "pinVersion": "workspace:*"
+    },
+    {
+      "label": "typescript is hand-authored (TS7 root pin + TS6 alias in eslint-config)",
+      "dependencies": ["typescript"],
+      "isIgnored": true
+    },
+    {
+      "label": "Peer ranges are hand-authored, never synced",
+      "dependencyTypes": ["peer"],
+      "isIgnored": true
+    },
+    {
+      "label": "Everything else must come from the pnpm catalog",
+      "dependencies": ["**"],
+      "dependencyTypes": ["prod", "dev"],
+      "policy": "catalog"
+    }
+  ]
+}

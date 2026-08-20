@@ -1,0 +1,89 @@
+{
+  "name": "@nukesai-pos/frontend",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Nukes AI POS admin panel UI (RSC + client components).",
+  "keywords": [
+    "point-of-sale",
+    "pos",
+    "restaurant",
+    "nukesai"
+  ],
+  "bugs": {
+    "email": "info@nukesai.com"
+  },
+  "license": "UNLICENSED",
+  "author": {
+    "name": "Nukes AI & Software Solution",
+    "email": "info@nukesai.com"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "type": "module",
+  "exports": {
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    },
+    "./styles.css": "./styles.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "styles.css",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@nukesai-pos/common": "workspace:^",
+    "server-only": "catalog:"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/core": "catalog:",
+    "@nukesai-pos/eslint-config": "workspace:*",
+    "@nukesai-pos/typescript-config": "workspace:*",
+    "@testing-library/dom": "catalog:",
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "eslint": "catalog:",
+    "jsdom": "catalog:",
+    "next": "catalog:",
+    "publint": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "next": "^16.3.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "provenance": false,
+    "registry": "https://registry.npmjs.org/",
+    "tag": "latest"
+  }
+}

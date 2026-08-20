@@ -1,0 +1,1 @@
+turbo run check-types lint --output-logs=errors-only

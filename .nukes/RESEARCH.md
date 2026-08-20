@@ -8,47 +8,47 @@
 
 ## 1. Toolchain matrix
 
-| Tool | Pinned version | Role | Status |
-|---|---|---|---|
-| node | 24.18.0 (engines `>=24.18.0` at root) | Dev/CI runtime. Published packages declare `>=20.19.0` (consumer floor = Next 16's `>=20.9` + ESLint/tooling floor) | ✅ |
-| pnpm | 11.10.0 (`packageManager: pnpm@11.10.0`) | Package manager; catalogs are the version single-source-of-truth; `workspace:` protocol rewritten at publish | ✅ |
-| typescript | 7.0.2 (Go-native `tsc`) | Type-checking (`check-types`), `next build` type checks (Next spawns local `tsc`, `useTypeScriptCli` defaults true) | ✅ with caveats below |
-| @typescript/typescript6 | 6.0.2 (TS 6.0.3 internally, bin `tsc6`) | **Scoped alias inside `packages/eslint-config` only** — gives typescript-eslint the JS API it needs | ✅ |
-| next | 16.3.1 | Consumer framework + in-repo example app for E2E | ✅ |
-| react / react-dom | 19.2.8 (peer range `^19.2.0`) | UI runtime, peer-only in published packages | ✅ |
-| tsdown | 0.22.14 | Package builds (rolldown ~1.2, rolldown-plugin-dts 0.27.x) | ✅ |
-| dts generator | **oxc** (forced via `isolatedDeclarations: true` + `dts: { generator: "oxc" }`) | Declaration emit, TS-package-independent | ✅ |
-| eslint | 10.8.1 flat config | Linting | ✅ |
-| typescript-eslint | 8.67.0 | Type-aware lint (runs on the TS6 alias) | ⚠️ see below |
-| @eslint/js | 10.0.1 | Core recommended rules | ✅ |
-| eslint-plugin-import-x | 4.17.1 | Boundary zones (`no-restricted-paths`) — only import plugin declaring ESLint 10 support | ✅ |
-| eslint-import-resolver-typescript | 4.4.5 | **Required** resolver; without it zone rules silently no-op on `.js`-suffixed TS specifiers | ✅ |
-| eslint-plugin-react-hooks | 7.1.1 | Hooks + bundled React Compiler rules (`configs.flat.recommended`) | ✅ |
-| @next/eslint-plugin-next | 16.3.1 | Next rules (flat `configs['core-web-vitals']`); ships NO boundary rules → we hand-build them | ✅ |
-| eslint-config-prettier | 10.1.8 (`/flat` subpath) | Kills all formatting rules, last in every config | ✅ |
-| eslint-plugin-turbo | 2.10.11 (`configs['flat/recommended']`) | Undeclared-env-var lint | ✅ |
-| globals | 17.11.0 | Env globals for flat config | ✅ |
-| prettier | 3.9.6 + prettier-plugin-packagejson 3.0.2 | Sole formatter (ESLint owns zero formatting) | ✅ |
-| vitest | 4.1.11 + @vitest/coverage-v8 4.1.11 | Unit tests; **coverage is root-only**, `include` is mandatory (`all` was removed) | ✅ |
-| @testing-library/react / dom / jest-dom | 16.3.2 / 10.4.1 / 7.0.1 | Component tests (`globals: false` ⇒ manual `cleanup()` in setup) | ✅ |
-| jsdom / @vitejs/plugin-react | 30.0.1 / 6.1.0 | Frontend test environment | ✅ |
-| @playwright/test | 1.62.1 | E2E against the example app (prod `next start`, port 3100) | ✅ |
-| size-limit + @size-limit/preset-small-lib | 13.0.3 | **Blocking** perf/tree-shaking gate (per-export `import` budgets, `gzip: true`) | ✅ |
-| turbo | 2.10.11 | Task graph + `.turbo/cache` via actions/cache@v6 (no remote cache service) | ✅ |
-| husky / lint-staged | 9.1.7 / 17.3.0 | Hooks (v9 format: no shebang, no husky.sh preamble) | ✅ |
-| @commitlint/cli + config-conventional | 21.2.2 | Conventional commits + forced scopes | ✅ |
-| @changesets/cli | 3.0.1, `changesets/action@v2.1.1` (v2 kebab-case inputs) | Versioning/release; **fixed** group of the 4 published packages | ✅ |
-| publint / @arethetypeswrong/core | 0.3.24 / 0.18.5 | Publish-readiness, run **inside** tsdown builds (`publint: true`, `attw: { profile: "esm-only", level: "error" }`) | ✅ |
-| knip | 6.32.2 | Dead code/deps/exports (tree-shakability drift detector) | ✅ |
-| syncpack | 15.3.3 | Version alignment + pnpm-catalog policy enforcement (`lint` only, never `format`) | ✅ |
-| commander | 14.0.3 (**not** 15 — its `node >=22.12` floor rejects legit Next 16 consumers) | CLI framework | ✅ |
-| @clack/prompts / magicast / comment-json / tinyglobby / picocolors / diff | 1.7.0 / 0.5.4 / 5.0.0 / 0.2.17 / 1.1.1 / 9.0.0 | CLI prompts, next.config AST patching, comment-preserving tsconfig edits, globbing, colors, diffs | ✅ |
-| server-only / client-only | 0.0.1 | Poison-pill packages, installed as real deps | ✅ |
-| @types/node / @types/react / @types/react-dom | 24.13.3 / 19.2.18 / 19.2.4 | Types (@types/node pinned to the Node 24 line, not latest 26.x) | ✅ |
+| Tool                                                                      | Pinned version                                                                  | Role                                                                                                                | Status                |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| node                                                                      | 24.18.0 (engines `>=24.18.0` at root)                                           | Dev/CI runtime. Published packages declare `>=20.19.0` (consumer floor = Next 16's `>=20.9` + ESLint/tooling floor) | ✅                    |
+| pnpm                                                                      | 11.10.0 (`packageManager: pnpm@11.10.0`)                                        | Package manager; catalogs are the version single-source-of-truth; `workspace:` protocol rewritten at publish        | ✅                    |
+| typescript                                                                | 7.0.2 (Go-native `tsc`)                                                         | Type-checking (`check-types`), `next build` type checks (Next spawns local `tsc`, `useTypeScriptCli` defaults true) | ✅ with caveats below |
+| @typescript/typescript6                                                   | 6.0.2 (TS 6.0.3 internally, bin `tsc6`)                                         | **Scoped alias inside `packages/eslint-config` only** — gives typescript-eslint the JS API it needs                 | ✅                    |
+| next                                                                      | 16.3.1                                                                          | Consumer framework + in-repo example app for E2E                                                                    | ✅                    |
+| react / react-dom                                                         | 19.2.8 (peer range `^19.2.0`)                                                   | UI runtime, peer-only in published packages                                                                         | ✅                    |
+| tsdown                                                                    | 0.22.14                                                                         | Package builds (rolldown ~1.2, rolldown-plugin-dts 0.27.x)                                                          | ✅                    |
+| dts generator                                                             | **oxc** (forced via `isolatedDeclarations: true` + `dts: { generator: "oxc" }`) | Declaration emit, TS-package-independent                                                                            | ✅                    |
+| eslint                                                                    | 10.8.1 flat config                                                              | Linting                                                                                                             | ✅                    |
+| typescript-eslint                                                         | 8.67.0                                                                          | Type-aware lint (runs on the TS6 alias)                                                                             | ⚠️ see below          |
+| @eslint/js                                                                | 10.0.1                                                                          | Core recommended rules                                                                                              | ✅                    |
+| eslint-plugin-import-x                                                    | 4.17.1                                                                          | Boundary zones (`no-restricted-paths`) — only import plugin declaring ESLint 10 support                             | ✅                    |
+| eslint-import-resolver-typescript                                         | 4.4.5                                                                           | **Required** resolver; without it zone rules silently no-op on `.js`-suffixed TS specifiers                         | ✅                    |
+| eslint-plugin-react-hooks                                                 | 7.1.1                                                                           | Hooks + bundled React Compiler rules (`configs.flat.recommended`)                                                   | ✅                    |
+| @next/eslint-plugin-next                                                  | 16.3.1                                                                          | Next rules (flat `configs['core-web-vitals']`); ships NO boundary rules → we hand-build them                        | ✅                    |
+| eslint-config-prettier                                                    | 10.1.8 (`/flat` subpath)                                                        | Kills all formatting rules, last in every config                                                                    | ✅                    |
+| eslint-plugin-turbo                                                       | 2.10.11 (`configs['flat/recommended']`)                                         | Undeclared-env-var lint                                                                                             | ✅                    |
+| globals                                                                   | 17.11.0                                                                         | Env globals for flat config                                                                                         | ✅                    |
+| prettier                                                                  | 3.9.6 + prettier-plugin-packagejson 3.0.2                                       | Sole formatter (ESLint owns zero formatting)                                                                        | ✅                    |
+| vitest                                                                    | 4.1.11 + @vitest/coverage-v8 4.1.11                                             | Unit tests; **coverage is root-only**, `include` is mandatory (`all` was removed)                                   | ✅                    |
+| @testing-library/react / dom / jest-dom                                   | 16.3.2 / 10.4.1 / 7.0.1                                                         | Component tests (`globals: false` ⇒ manual `cleanup()` in setup)                                                    | ✅                    |
+| jsdom / @vitejs/plugin-react                                              | 30.0.1 / 6.1.0                                                                  | Frontend test environment                                                                                           | ✅                    |
+| @playwright/test                                                          | 1.62.1                                                                          | E2E against the example app (prod `next start`, port 3100)                                                          | ✅                    |
+| size-limit + @size-limit/preset-small-lib                                 | 13.0.3                                                                          | **Blocking** perf/tree-shaking gate (per-export `import` budgets, `gzip: true`)                                     | ✅                    |
+| turbo                                                                     | 2.10.11                                                                         | Task graph + `.turbo/cache` via actions/cache@v6 (no remote cache service)                                          | ✅                    |
+| husky / lint-staged                                                       | 9.1.7 / 17.3.0                                                                  | Hooks (v9 format: no shebang, no husky.sh preamble)                                                                 | ✅                    |
+| @commitlint/cli + config-conventional                                     | 21.2.2                                                                          | Conventional commits + forced scopes                                                                                | ✅                    |
+| @changesets/cli                                                           | 3.0.1, `changesets/action@v2.1.1` (v2 kebab-case inputs)                        | Versioning/release; **fixed** group of the 4 published packages                                                     | ✅                    |
+| publint / @arethetypeswrong/core                                          | 0.3.24 / 0.18.5                                                                 | Publish-readiness, run **inside** tsdown builds (`publint: true`, `attw: { profile: "esm-only", level: "error" }`)  | ✅                    |
+| knip                                                                      | 6.32.2                                                                          | Dead code/deps/exports (tree-shakability drift detector)                                                            | ✅                    |
+| syncpack                                                                  | 15.3.3                                                                          | Version alignment + pnpm-catalog policy enforcement (`lint` only, never `format`)                                   | ✅                    |
+| commander                                                                 | 14.0.3 (**not** 15 — its `node >=22.12` floor rejects legit Next 16 consumers)  | CLI framework                                                                                                       | ✅                    |
+| @clack/prompts / magicast / comment-json / tinyglobby / picocolors / diff | 1.7.0 / 0.5.4 / 5.0.0 / 0.2.17 / 1.1.1 / 9.0.0                                  | CLI prompts, next.config AST patching, comment-preserving tsconfig edits, globbing, colors, diffs                   | ✅                    |
+| server-only / client-only                                                 | 0.0.1                                                                           | Poison-pill packages, installed as real deps                                                                        | ✅                    |
+| @types/node / @types/react / @types/react-dom                             | 24.13.3 / 19.2.18 / 19.2.4                                                      | Types (@types/node pinned to the Node 24 line, not latest 26.x)                                                     | ✅                    |
 
 ### ⚠️ Not safe to adopt yet — with fallback
 
-- **⚠️ typescript-eslint on TS7**: peer is `>=4.8.4 <6.1.0` and TS 7.0.2 exports only `{version}` from `require("typescript")` — type-aware lint hard-crashes. **Fallback (adopted, verified in a real pnpm workspace): the HYBRID** — real `typescript@7.0.2` everywhere, and *only* `packages/eslint-config` carries `"typescript": "npm:@typescript/typescript6@6.0.2"` as a devDependency. Result: root `.bin/tsc` = 7.0.2 (Next + check-types), typescript-estree resolves TS 6.0.3, zero peer warnings, no bin collision (typescript6's bin is `tsc6`). **RESOLVED against** the root-level global alias pair proposed by another researcher: Next's `getTypeScriptPackageInfo` reads `packageJson.bin.tsc` of whatever resolves as `typescript` — typescript6's bin is `tsc6`, so a global alias breaks `next build`. Also **no `pnpm.overrides` on `typescript`** (it would clobber the scoped alias). `tsc --noEmit` (TS7) is the authority; lint findings from the TS6 checker are enforced style. Revisit when typescript-eslint ships TS ≥7.1 support (their issue #10940).
+- **⚠️ typescript-eslint on TS7**: peer is `>=4.8.4 <6.1.0` and TS 7.0.2 exports only `{version}` from `require("typescript")` — type-aware lint hard-crashes. **Fallback (adopted, verified in a real pnpm workspace): the HYBRID** — real `typescript@7.0.2` everywhere, and _only_ `packages/eslint-config` carries `"typescript": "npm:@typescript/typescript6@6.0.2"` as a devDependency. Result: root `.bin/tsc` = 7.0.2 (Next + check-types), typescript-estree resolves TS 6.0.3, zero peer warnings, no bin collision (typescript6's bin is `tsc6`). **RESOLVED against** the root-level global alias pair proposed by another researcher: Next's `getTypeScriptPackageInfo` reads `packageJson.bin.tsc` of whatever resolves as `typescript` — typescript6's bin is `tsc6`, so a global alias breaks `next build`. Also **no `pnpm.overrides` on `typescript`** (it would clobber the scoped alias). `tsc --noEmit` (TS7) is the authority; lint findings from the TS6 checker are enforced style. Revisit when typescript-eslint ships TS ≥7.1 support (their issue #10940).
 - **⚠️ TS7 language-service plugins**: no tsserver, no `plugins: [{"name":"next"}]` support. Fallback: keep the key in the nextjs preset (inert under TS7) and ship `.vscode/settings.json` pointing `typescript.tsdk` at the TS6 alias inside eslint-config so editors keep the Next plugin.
 - **⚠️ tsdown `tsgo` dts generator**: auto-selected when TS7 is installed and self-documented as not production-ready. Fallback (adopted): `isolatedDeclarations: true` in the library tsconfig + `dts: { generator: "oxc" }` — declaration emit never touches the TypeScript package.
 - **⚠️ npm Trusted Publishing (OIDC)**: npm/cli#8544 and #8976 (scoped packages via changesets/action) still open. Fallback: granular `NPM_TOKEN` secret behind a protected `release` GitHub environment. **npm provenance is structurally impossible for restricted packages** — `provenance: false` in every publishConfig and `NPM_CONFIG_PROVENANCE=false` in release env.
@@ -58,6 +58,7 @@
 - **⚠️ E2E coverage merge into the 100% gate**: Chromium-only CDP data + minified-bundle remapping = nondeterministic gate. Not adopted. E2E is behavioral pass/fail only.
 
 ### Explicitly not adopted (and why)
+
 `eslint-plugin-only-warn` (destroys the error signal; remove from starter) · `eslint-plugin-react-compiler` (bundled in react-hooks 7) · `eslint-plugin-import` (no ESLint 10 peer) · `eslint-plugin-boundaries` (redundant, vague peers) · tsdown `exports` generator (**RESOLVED**: `exports: false`, hand-written maps — the generator omits `types` conditions, rewrites package.json every build, and would clobber the `browser`-guard conditions) · `syncpack format` (fights prettier-plugin-packagejson) · `changeset publish` (ships literal `workspace:^` — publish via `pnpm publish -r`) · Vercel/third-party remote cache (supply-chain surface; actions/cache on `.turbo/cache`) · CJS output of any kind (ESM-only; `dts.cjsReexport` is the documented escape hatch if a CJS consumer ever materializes) · `coverage.all`, vitest `workspace` field, per-package `coverage` blocks (all removed/ignored in Vitest 4).
 
 ---
@@ -248,25 +249,29 @@ common  ←  backend        (backend may import common)
 common  ←  frontend       (frontend may import common)
 NOTHING ELSE.
 ```
+
 - `frontend` **never** imports `backend` (and vice versa). Data crosses that boundary only as serializable props / route handlers in the consumer app.
 - `common` is a **leaf**: imports neither sibling, no Node builtins, no DOM, no `process.env`.
-- `cli` imports **no** workspace package at runtime — it scaffolds files that *reference* them. (Its templates pin `@nukesai-pos/*@<own version>`, which works because versioning is fixed.)
+- `cli` imports **no** workspace package at runtime — it scaffolds files that _reference_ them. (Its templates pin `@nukesai-pos/*@<own version>`, which works because versioning is fixed.)
 - config packages (`eslint-config`, `typescript-config`) are devDependency-only, private, never published.
 
 ### @nukesai-pos/common — isomorphic leaf
+
 - **Responsibility**: i18n (en/ne locales), shared types, schema validators, constants (incl. the flat multi-location model: `LocationId` everywhere), runtime guards.
 - **Entry points**: `.`, `./types`, `./constants`, `./schemas`, `./i18n`, `./i18n/locales/*` (per-locale so importing `ne` never pays for `en`), `./runtime`, `./package.json`.
 - **Runtime**: isomorphic, provably — no Node builtins, no DOM globals, no `process.env` (config is injected as parameters). `platform: "neutral"`, `sideEffects: false`.
 - **Deps**: none. No peers.
 
 ### @nukesai-pos/backend — server-only
+
 - **Responsibility**: route-handler logic, business logic, data access **ports** and the demo adapter. Never a line of UI.
 - **Entry points**: `.` (guarded), `./ports` (interfaces — importable anywhere for types), `./adapters/demo` (guarded), `./package.json`. (Future: `./handlers`, `./next` for the `withNukesPos` config wrapper — added when route logic lands.)
 - **Runtime**: server-only, triple-locked: (1) `import "server-only"` first line of every non-`ports` entry; (2) `"browser"` export condition on guarded entries resolves to a throwing `dist/_browser_guard.js` — verified to fail a Next 16 client build at build time with the real module absent from `.next/static`; (3) `default` condition points at the **real** module (**RESOLVED** against the poison-`default` variant: it would break plain-Node consumers like vitest unless every runner sets `resolve.conditions: ['react-server']`; the verified browser-guard + server-only combination achieves the same isolation without that tax).
-- **Deps**: `@nukesai-pos/common` (`workspace:^`), `server-only`. **Peers**: `next ^16.3.0` only — deliberately *no* react/react-dom peer, so a react import in backend fails resolution/typecheck by construction.
+- **Deps**: `@nukesai-pos/common` (`workspace:^`), `server-only`. **Peers**: `next ^16.3.0` only — deliberately _no_ react/react-dom peer, so a react import in backend fails resolution/typecheck by construction.
 - **Ports/adapters shape** (data layer deferred): `src/ports/*.ts` defines interfaces only (`OrderRepository`, later `PaymentGateway`, `InventoryRepository`, …) — every method takes `locationId: LocationId` as its first parameter (flat DB, branch isolation, explicitly not multi-tenant). `src/adapters/demo/` is an in-memory implementation exporting `createDemoOrderRepository()`. Business logic depends only on ports; a future Drizzle/Prisma adapter is a new `src/adapters/<driver>/` + a new export subpath — zero public-API change.
 
 ### @nukesai-pos/frontend — mixed RSC + client
+
 - **Responsibility**: admin-panel UI and (later) route scaffolding surface.
 - **Entry points**: `./server` (RSC components, `import "server-only"`), `./client` (client barrel; directives live on **leaves** only), `./styles.css` (Tailwind v4 `@source` registration), `./package.json`. **No root `.` export** — there is no import specifier that yields both halves (**RESOLVED** in favor of the publishing researcher's boundary-by-construction design). Later: `./components/*` per-feature subpaths.
 - **Runtime**: `src/server/**` = RSC/Node graph; `src/client/**` = browser (+SSR pass). `platform: "neutral"`, `sideEffects: ["**/*.css"]`.
@@ -274,13 +279,15 @@ NOTHING ELSE.
 - **Lazy loading**: dynamic-import boundaries live **inside `"use client"` modules** using `next/dynamic` (never re-exported; `ssr: false` is illegal in RSC; RSC→client dynamic import does not code-split). unbundle preserves the `import()` calls so the consumer's Turbopack splits chunks.
 
 ### @nukesai-pos/cli — published scaffolder
+
 - **RESOLVED contradiction in the brief**: the brief listed the CLI under "private, non-published", but the chosen integration model is `npx @nukesai-pos/cli init` — npx resolves from the registry, so the CLI **must be published** (restricted) and is in the fixed version group. Only eslint-config and typescript-config stay private.
 - **Commands**: `init` (detect → prompt → write `nukes-pos.json` → scaffold `app/(nukes-pos)/**` route group → patch next.config/tsconfig/.npmrc/env), `add <feature…>`, `doctor` (read-only diagnosis, exit 1 on error), `upgrade` (hash-stamp aware, **defaults to dry-run**). Global flags per command: `--cwd`, `--yes`, `--dry-run`, `--silent`, `--force`.
-- **Safety**: refuses to run on a dirty worktree without `--force`; every generated file carries `// @nukesai-pos/cli generated — do not edit. hash: <sha256-of-body>` (hash computed over the body *excluding* the stamp line, line-endings normalized); pristine → overwrite, edited → write `<name>.new.ts` + render diff (`diff@9`). Precedent: `shadcn add --overwrite/--dry-run/--diff` (per verification: the standalone `diff` command is deprecated).
+- **Safety**: refuses to run on a dirty worktree without `--force`; every generated file carries `// @nukesai-pos/cli generated — do not edit. hash: <sha256-of-body>` (hash computed over the body _excluding_ the stamp line, line-endings normalized); pristine → overwrite, edited → write `<name>.new.ts` + render diff (`diff@9`). Precedent: `shadcn add --overwrite/--dry-run/--diff` (per verification: the standalone `diff` command is deprecated).
 - **Never uses the TypeScript AST API** (TS7 has none; TS6-dependent tools would need the alias trick). Config patching = magicast (next.config) + comment-json (tsconfig) — both verified idempotent.
 - **CJS caveat it enforces**: our packages are ESM-only, so the CLI scaffolds/expects `next.config.ts|mjs`, never CJS.
 
 ### Internal packages
+
 - **typescript-config** (private): 4 presets — `base.json`, `library.json` (adds `isolatedDeclarations`), `react-library.json`, `nextjs.json` (pre-set to Next 16.3's tsconfig fixed point so `next typegen` never rewrites it). Every TS7-changed default is pinned explicitly. No `tsBuildInfoFile` in presets (verified to resolve relative to the declaring file).
 - **eslint-config** (private): `base.js` (factory — takes `tsconfigRootDir`), `react.js`, `boundaries.js` (factory — takes `packageDir` + `zone`). Carries the TS6 alias so typescript-eslint works while the repo runs TS7.
 
@@ -291,41 +298,48 @@ NOTHING ELSE.
 Normative version lives at `docs/architecture/isolation.md` (Appendix). Summary of the enforced rules:
 
 ### Mechanisms and what each guarantees
-| Mechanism | Layer | Guarantee |
-|---|---|---|
-| `"use client"` on **leaf** files only | bundler | Marks client-subtree entry. Barrels with the directive leak every unused export into the consumer bundle (verified) — **forbidden** |
-| `import "server-only"` first line of server entries | resolver+eval | Build-time error when a client module reaches it (Next intercepts the specifier; the npm package covers non-Next RSC bundlers). Installed as a real dependency |
-| `"browser"` export condition → throwing guard | resolver | Turbopack resolves it in the app-client layer ⇒ hard build failure, real module never enters the client graph (verified) |
-| `react-server` condition | resolver | Available for future per-graph splits; custom conditions are **forbidden** (Turbopack ignores them) |
-| `assertServerRuntime()` / `assertClientRuntime()` (`@nukesai-pos/common/runtime`) | runtime | Last-resort net; catches misconfiguration, not mistakes |
+
+| Mechanism                                                                         | Layer         | Guarantee                                                                                                                                                      |
+| --------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"use client"` on **leaf** files only                                             | bundler       | Marks client-subtree entry. Barrels with the directive leak every unused export into the consumer bundle (verified) — **forbidden**                            |
+| `import "server-only"` first line of server entries                               | resolver+eval | Build-time error when a client module reaches it (Next intercepts the specifier; the npm package covers non-Next RSC bundlers). Installed as a real dependency |
+| `"browser"` export condition → throwing guard                                     | resolver      | Turbopack resolves it in the app-client layer ⇒ hard build failure, real module never enters the client graph (verified)                                       |
+| `react-server` condition                                                          | resolver      | Available for future per-graph splits; custom conditions are **forbidden** (Turbopack ignores them)                                                            |
+| `assertServerRuntime()` / `assertClientRuntime()` (`@nukesai-pos/common/runtime`) | runtime       | Last-resort net; catches misconfiguration, not mistakes                                                                                                        |
 
 ### Directory convention (directories, not filename suffixes)
+
 ```
 src/server/   # RSC/Node only — poisoned with server-only
 src/client/   # browser — "use client" on leaves, never on index.ts
 (shared code lives in @nukesai-pos/common, not in a shared/ dir)
 ```
+
 Chosen because `import-x/no-restricted-paths` zones and flat-config `files` globs key off directory prefixes, and directories map 1:1 onto export subpaths and unbundle output.
 
 ### Lint enforcement (two layers, both kept — neither is a superset)
+
 1. **`no-restricted-imports`** (core): matches specifier strings — bans `@nukesai-pos/backend`, `server-only`, node builtins (bare **and** `node:`-prefixed list) in client zones; bans client imports and DOM globals in server zones; bans everything runtime-specific in `common`.
 2. **`import-x/no-restricted-paths`** (resolved paths, TS resolver **required**): `client/**` ✗→ `server/**`, plus package-level bans. Exported as a factory `boundaries({ packageDir, zone })` because `basePath` must be each package's own dir — a shared static config silently matches nothing.
 
 Zones per package: backend = `server` (rules applied to `src/**`), frontend = `mixed`, common = `isomorphic` (rules applied to `src/**` + leaf-package import ban), cli = none (Node CLI, builtins allowed).
 
 ### Automated dist test (the gate lint cannot provide)
+
 `packages/{frontend,backend}/test/boundary.dist.test.ts` runs in the root vitest pass (which builds first — root `test` script runs `turbo run build` before `vitest`):
+
 - every non-barrel `dist/client/**` chunk **starts with** `"use client"`; barrels (`index.js`) must **not** carry it;
 - no client chunk imports `server-only` or a node builtin;
 - no server chunk carries `"use client"`; guarded server entries keep `import "server-only"`;
 - `dist/_browser_guard.js` exists and throws; globs assert non-empty match sets (no vacuous passes).
-Verified failure modes it catches: tsdown bundled mode silently **drops** directives (`unbundle: true` is the only preservation mechanism — there is no `preserveDirectives` option), and tree-shaking removing the poison pill.
+  Verified failure modes it catches: tsdown bundled mode silently **drops** directives (`unbundle: true` is the only preservation mechanism — there is no `preserveDirectives` option), and tree-shaking removing the poison pill.
 
 ---
 
 ## 5. Build & tree-shaking strategy
 
 ### Universal tsdown rules (all published packages)
+
 - `format: 'esm'` only, `"type": "module"`, `fixedExtension: false` (plain `.js`), no minify (consumer bundler minifies), `treeshake: true`, `sourcemap: true` + `dts: { sourcemap: true }` together (prevents the dangling `.d.ts.map` reference).
 - **`unbundle: true` — MANDATORY**, it is the only thing that preserves `"use client"` / `"use server"` and gives 1-file-per-module output for consumer-side code splitting.
 - `hash: false` (default true would break hand-written exports paths), `root: 'src'` (pins the dist layout).
@@ -335,22 +349,25 @@ Verified failure modes it catches: tsdown bundled mode silently **drops** direct
 - Platforms: common + frontend `neutral`, backend `node`, cli `node`.
 
 ### Exports maps (hand-written, `types` first, verified publint/attw-clean)
+
 - **common**: 8 subpaths incl. `./i18n/locales/*` wildcard; `sideEffects: false` (load-bearing — verified: removing it ships unused modules to the consumer bundle).
 - **frontend**: `./server` + `./client` + `./styles.css`, no root export; `sideEffects: ["**/*.css"]` (array form preserves CSS emission while shaking JS).
 - **backend**: `.` and `./adapters/demo` carry `"browser": "./dist/_browser_guard.js"`; `./ports` unguarded (type-safe interfaces).
 - All: `"./package.json": "./package.json"`, `files` allowlist `["dist", "src", "styles.css"?, "README.md", "LICENSE", "CHANGELOG.md"]` (fail-closed; `src` shipped so sourcemaps resolve — restricted access means only licensed customers see it). npm force-includes LICENSE; CHANGELOG must be listed explicitly.
 
 ### Consumer-side guidance (scaffolded by the CLI)
+
 `serverExternalPackages: ['@nukesai-pos/backend']` (mandatory once a real driver lands), `experimental.optimizePackageImports` for frontend/common (nice-to-have — the subpath+leaf-directive+sideEffects design was verified to shake without it), Tailwind v4 consumers just `@import "@nukesai-pos/frontend/styles.css"` (contains `@source "./dist"`, verified to register the package as a scan source through pnpm symlinks).
 
 ### Perf budget (size-limit, blocking in CI, `gzip: true` explicitly — default is brotli)
-| Check | Budget |
-|---|---|
-| common full entry | 8 kB |
-| common single export `{ formatMoney }` (tree-shaking proof) | 1.5 kB |
-| frontend client entry (react/react-dom/next ignored) | 45 kB |
-| frontend single component `{ OrderTicket }` (tree-shaking proof) | 6 kB |
-| backend server entry | 60 kB |
+
+| Check                                                            | Budget |
+| ---------------------------------------------------------------- | ------ |
+| common full entry                                                | 8 kB   |
+| common single export `{ formatMoney }` (tree-shaking proof)      | 1.5 kB |
+| frontend client entry (react/react-dom/next ignored)             | 45 kB  |
+| frontend single component `{ OrderTicket }` (tree-shaking proof) | 6 kB   |
+| backend server entry                                             | 60 kB  |
 
 A jump in a per-`import` budget means tree-shaking broke — exactly the Lighthouse regression this prevents. Budget increases require a dedicated, reviewed commit.
 
@@ -359,11 +376,13 @@ A jump in a per-`import` budget means tree-shaking broke — exactly the Lightho
 ## 6. Testing strategy
 
 ### Vitest 4 layout — one root run, root-only coverage
-- Root `vitest.config.ts` declares `projects: ['packages/common','packages/backend','packages/frontend','packages/cli']` (`projects` replaced the removed `workspace` field). Per-package configs carry **only** name/environment/setup/include — `coverage` is a `NonProjectOption` and is *silently ignored* in project configs.
+
+- Root `vitest.config.ts` declares `projects: ['packages/common','packages/backend','packages/frontend','packages/cli']` (`projects` replaced the removed `workspace` field). Per-package configs carry **only** name/environment/setup/include — `coverage` is a `NonProjectOption` and is _silently ignored_ in project configs.
 - One root run ⇒ one unified coverage number. No nyc/istanbul merge. CI sharding (when needed): shards run `vitest run --coverage --reporter=blob --shard=i/n --coverage.thresholds.100=false` (per-shard gate MUST be off), then `vitest run --merge-reports --coverage` enforces once.
 - Environments: backend/common/cli `node`; frontend `jsdom` + `@vitejs/plugin-react`; `globals: false` everywhere ⇒ frontend setup file **must** call RTL `cleanup()` (auto-cleanup does not register without a global `afterEach` — verified DOM leakage otherwise). Backend setup asserts no DOM globals leaked in.
 
 ### The honest 100% gate
+
 - `coverage.include: ['packages/*/src/**/*.{ts,tsx}']` — **the load-bearing line**. Vitest 4 removed `coverage.all`; without `include`, untested files are invisible and the run reports a fraudulent green 100% (reproduced).
 - `coverage.exclude` (defaults to `[]` in v4, every exclusion explicit): `**/*.d.ts`, `**/*.test.{ts,tsx}`, `**/index.ts` (pure re-export barrels ONLY — house rule: logic never lives in an index.ts), `packages/cli/src/main.ts` (bin wiring), `**/dist/**`.
 - `thresholds: { 100: true, perFile: true }` (typed shorthand for all-four=100; perFile names the offending file). No `autoUpdate`.
@@ -372,6 +391,7 @@ A jump in a per-`import` budget means tree-shaking broke — exactly the Lightho
 - Foundation demo exports all ship with tests so the gate is exercised, not vacuous. Frontend RSC demos are **sync pure components** so RTL can render them; if async RSC shells appear later, they must stay thin and be excluded by precise glob, never `**/*.tsx`.
 
 ### E2E (Playwright 1.62.1)
+
 - Root `playwright.config.ts`, specs in `e2e/`, three projects (chromium / webkit / iPhone 15 — device names verified). `webServer` runs the **production** `next start` of `apps/example` on dedicated port 3100 (never a stale dev server on 3000). `blob` reporter in CI for future sharding + `playwright merge-reports`.
 - E2E is a separate CI job and root script (`pnpm e2e`), outside the unit-test flow. Its coverage is **never** merged into the unit number.
 - Deviation from the Turborepo Playwright guide, deliberate: we run playwright at the root after `turbo run build` rather than as a cached turbo task; revisit caching when E2E gets slow.
@@ -381,22 +401,27 @@ A jump in a per-`import` budget means tree-shaking broke — exactly the Lightho
 ## 7. Quality gates & git workflow
 
 ### ESLint layers (all flat, ESLint 10)
+
 1. `@nukesai-pos/eslint-config/base` — factory: ignores → `@eslint/js` recommended → tseslint `strictTypeChecked` + `stylisticTypeChecked` (type-style only, no Prettier collision) → turbo `flat/recommended` → projectService languageOptions → house rules (consistent-type-imports/exports, explicit-module-boundary-types, no-floating-promises, enum ban via no-restricted-syntax — pairs with `erasableSyntaxOnly`) → untyped-JS carve-out → test relaxations → `eslint-config-prettier/flat` **last**.
 2. `…/react` — adds `reactHooks.configs.flat.recommended` (NOT top-level `.configs.recommended` — that's the legacy eslintrc shape) and `nextPlugin.configs['core-web-vitals']` (already flat), disables `@next/next/no-html-link-for-pages` (app-router-only noise).
 3. `…/boundaries` — the SSR/CSR zone factory (§4).
 
 ### Prettier
+
 Owns 100% of formatting. 3.9.6 + `prettier-plugin-packagejson` (canonical package.json field order — which is also why `syncpack format` is banned). `experimentalOperatorPosition` and `objectWrap` are verified-real 3.9 options.
 
 ### Hooks (husky 9 format: plain command lines, no shebang, no husky.sh preamble; `"prepare": "husky"`)
+
 - `pre-commit`: `lint-staged` → prettier only (type-aware ESLint is too slow for per-commit).
 - `commit-msg`: `commitlint --edit "$1"` — config-conventional types (build chore ci docs feat fix perf refactor revert style test) + `scope-empty: never` + `scope-enum`: `backend, frontend, common, cli, eslint-config, typescript-config, example, repo, ci, deps, release`.
 - `pre-push`: `turbo run check-types lint --output-logs=errors-only` (turbo cache absorbs the cost).
 
 ### Changesets (3.0.1)
+
 `fixed: [[common, backend, frontend, cli]]` — one product version; the CLI scaffolds `@nukesai-pos/*@<own version>` with no lookup table. `privatePackages: { version: false, tag: false }` (config packages + example never versioned/tagged). `bumpVersionsWithWorkspaceProtocolOnly: true`; internal prod deps are `workspace:^` (publishes as `^x.y.z`). `changedFilePatterns` keeps doc/test-only edits from demanding changesets. Publish path is **only** the root `release` script: `turbo run build && pnpm publish -r --no-git-checks --access restricted --report-summary` (pnpm rewrites `workspace:` — `changeset publish` would ship literal `workspace:^`). No `prepublishOnly` gates (a mid-sequence failure would leave earlier packages published); the gate (publint+attw at `level: error`) runs inside every build **before** any tarball uploads.
 
 ### CI job graph (`.github/workflows/ci.yml`)
+
 `verify` job: checkout → pnpm/action-setup@v6 (reads `packageManager`) → setup-node@v7 (node 24, pnpm cache) → actions/cache@v6 on `.turbo/cache` → `pnpm install --frozen-lockfile` → `syncpack lint` → `prettier --check .` → `turbo run lint` → `turbo run check-types` → `turbo run build` → assert no package.json drift → `pnpm test` (build is cached; vitest + 100% gate) → `pnpm coverage:canary` → `pnpm size` → `pnpm knip` → upload coverage.
 `e2e` job (parallel): install → Playwright browser cache → `turbo run build` → `pnpm e2e` → upload report.
 `release` workflow: on push to main, protected `release` environment, hand-written `$HOME/.npmrc` with literal `${NPM_TOKEN}` (no `registry-url` on setup-node), `changesets/action@v2.1.1` with kebab-case `version-script`/`publish-script`, `NPM_CONFIG_PROVENANCE: "false"`.
@@ -405,27 +430,28 @@ Owns 100% of formatting. 3.9.6 + `prettier-plugin-packagejson` (canonical packag
 
 ## 8. Open risks
 
-| # | Risk | Fallback / action |
-|---|---|---|
-| 1 | **npm org not purchased** — restricted scoped publish fails HTTP 402; invisible until first publish | Buy the npm Team/Org plan for `@nukesai-pos` and do the **manual first publish of all four packages from a workstation** before wiring release.yml. Verify with `npm access list packages @nukesai-pos` |
-| 2 | **tsdown dts under the eslint-config TS6 alias** — UNVERIFIED whether any tsdown path ever resolves `typescript` cross-package | The oxc generator is TS-independent by design; still, on first real build assert the log **never** contains `Emit types with typescript@` or `does not yet have a stable API` — add that grep as a CI check |
-| 3 | **TS6 (lint) vs TS7 (check) semantic drift** — type-aware rules reason from a different checker | `tsc --noEmit` (TS7) is the authority; both typescript specifiers exact-pinned; tracking note on typescript-eslint TS7 support (#10940) |
-| 4 | **Tailwind v4 `@source "./dist"` through pnpm symlinks** — verified in a scratch fixture, not yet in this repo's example app | E2E fixture assertion: a utility class used only inside `@nukesai-pos/frontend/dist` must appear in the example app's generated CSS. If symlinks defeat it, ship fully-resolved CSS and make Tailwind consumer-side only |
-| 5 | **`browser`-guard error is cryptic** (`Export X doesn't exist in target module …_browser_guard.js [app-client]`) | `server-only` fires first with Next's clear message; the guard's own throw message names the fix; documented in isolation.md |
-| 6 | **attw passes packages that ship zero `.d.ts`** | publint --strict catches it (verified exit 1) and runs in every build; boundary tests also stat key `.d.ts` files |
-| 7 | **UNVERIFIED syncpack keys**: exact `versionGroups` sub-key set of the v15 Rust rewrite beyond what was live-tested (`dependencies`, `dependencyTypes`, `pinVersion`, `policy: "catalog"`, `isIgnored` were tested) | First `syncpack lint` run validates the committed config; syncpack errors loudly on unknown/deprecated keys (verified behavior) |
-| 8 | **knip config will need tuning** on first run (tsdown's optional peers publint/@arethetypeswrong/core, `templates/` files) | Run `pnpm knip` locally before enabling as CI gate; add `ignoreDependencies` entries with comments as needed |
-| 9 | **engines floor of published packages** — `>=20.19.0` chosen for consumer reach; repo dev/CI is Node 24 only | If a Node 20/22 consumer regression appears, add a Node 20 CI matrix leg for the packed tarballs |
-| 10 | **Turbo `$TURBO_DEFAULT$` hashes only git-tracked files** — fresh untracked dirs hash almost nothing | Documented in CONTRIBUTING: `git add` before trusting `turbo --dry` input counts |
-| 11 | **`@source`/CSS pipeline deferred** (@tsdown/css experimental) | When components gain CSS: exact-pin `@tsdown/css` to tsdown's version, `css: { splitting: true, inject: true, modules: {} }` (`inject: true` is required or imports are stripped), attw `excludeEntrypoints: [/\.css$/]` |
-| 12 | **CLI patchers write into customer repos** | Clean-worktree guard, `--dry-run` everywhere (default for `upgrade`), patchers unit-tested against fixtures: `app/` vs `src/app/`, `next.config.{js,mjs,ts}`, already-patched (idempotency verified with magicast) |
-| 13 | **size-limit budgets on a near-empty foundation** | Budgets set with deliberate headroom (§5); increases require a dedicated reviewed commit |
+| #   | Risk                                                                                                                                                                                                                | Fallback / action                                                                                                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **npm org not purchased** — restricted scoped publish fails HTTP 402; invisible until first publish                                                                                                                 | Buy the npm Team/Org plan for `@nukesai-pos` and do the **manual first publish of all four packages from a workstation** before wiring release.yml. Verify with `npm access list packages @nukesai-pos`                  |
+| 2   | **tsdown dts under the eslint-config TS6 alias** — UNVERIFIED whether any tsdown path ever resolves `typescript` cross-package                                                                                      | The oxc generator is TS-independent by design; still, on first real build assert the log **never** contains `Emit types with typescript@` or `does not yet have a stable API` — add that grep as a CI check              |
+| 3   | **TS6 (lint) vs TS7 (check) semantic drift** — type-aware rules reason from a different checker                                                                                                                     | `tsc --noEmit` (TS7) is the authority; both typescript specifiers exact-pinned; tracking note on typescript-eslint TS7 support (#10940)                                                                                  |
+| 4   | **Tailwind v4 `@source "./dist"` through pnpm symlinks** — verified in a scratch fixture, not yet in this repo's example app                                                                                        | E2E fixture assertion: a utility class used only inside `@nukesai-pos/frontend/dist` must appear in the example app's generated CSS. If symlinks defeat it, ship fully-resolved CSS and make Tailwind consumer-side only |
+| 5   | **`browser`-guard error is cryptic** (`Export X doesn't exist in target module …_browser_guard.js [app-client]`)                                                                                                    | `server-only` fires first with Next's clear message; the guard's own throw message names the fix; documented in isolation.md                                                                                             |
+| 6   | **attw passes packages that ship zero `.d.ts`**                                                                                                                                                                     | publint --strict catches it (verified exit 1) and runs in every build; boundary tests also stat key `.d.ts` files                                                                                                        |
+| 7   | **UNVERIFIED syncpack keys**: exact `versionGroups` sub-key set of the v15 Rust rewrite beyond what was live-tested (`dependencies`, `dependencyTypes`, `pinVersion`, `policy: "catalog"`, `isIgnored` were tested) | First `syncpack lint` run validates the committed config; syncpack errors loudly on unknown/deprecated keys (verified behavior)                                                                                          |
+| 8   | **knip config will need tuning** on first run (tsdown's optional peers publint/@arethetypeswrong/core, `templates/` files)                                                                                          | Run `pnpm knip` locally before enabling as CI gate; add `ignoreDependencies` entries with comments as needed                                                                                                             |
+| 9   | **engines floor of published packages** — `>=20.19.0` chosen for consumer reach; repo dev/CI is Node 24 only                                                                                                        | If a Node 20/22 consumer regression appears, add a Node 20 CI matrix leg for the packed tarballs                                                                                                                         |
+| 10  | **Turbo `$TURBO_DEFAULT$` hashes only git-tracked files** — fresh untracked dirs hash almost nothing                                                                                                                | Documented in CONTRIBUTING: `git add` before trusting `turbo --dry` input counts                                                                                                                                         |
+| 11  | **`@source`/CSS pipeline deferred** (@tsdown/css experimental)                                                                                                                                                      | When components gain CSS: exact-pin `@tsdown/css` to tsdown's version, `css: { splitting: true, inject: true, modules: {} }` (`inject: true` is required or imports are stripped), attw `excludeEntrypoints: [/\.css$/]` |
+| 12  | **CLI patchers write into customer repos**                                                                                                                                                                          | Clean-worktree guard, `--dry-run` everywhere (default for `upgrade`), patchers unit-tested against fixtures: `app/` vs `src/app/`, `next.config.{js,mjs,ts}`, already-patched (idempotency verified with magicast)       |
+| 13  | **size-limit budgets on a near-empty foundation**                                                                                                                                                                   | Budgets set with deliberate headroom (§5); increases require a dedicated reviewed commit                                                                                                                                 |
 
 ---
 
 ## 9. Appendix — file contents (written verbatim)
 
 ### `package.json` (root)
+
 ```json
 {
   "name": "@nukesai-pos/monorepo",
@@ -480,6 +506,7 @@ Owns 100% of formatting. 3.9.6 + `prettier-plugin-packagejson` (canonical packag
 ```
 
 ### `pnpm-workspace.yaml`
+
 ```yaml
 packages:
   - apps/*
@@ -544,6 +571,7 @@ catalog:
 ```
 
 ### `turbo.json`
+
 ```json
 {
   "$schema": "https://turborepo.com/schema.json",
@@ -575,21 +603,18 @@ catalog:
   }
 }
 ```
+
 Note: unit tests are deliberately NOT a turbo task — Vitest 4 coverage is root-only, so `pnpm test` runs `turbo run build` (cached) followed by one root `vitest run --coverage`. E2E is likewise a root script (`pnpm e2e`) run after `turbo run build` in its own CI job.
 
 ### `vitest.config.ts` (root — the ONLY place coverage may be configured)
+
 ```ts
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
     // Vitest 3.2 renamed `workspace` -> `projects`; Vitest 4 removed `workspace`.
-    projects: [
-      'packages/common',
-      'packages/backend',
-      'packages/frontend',
-      'packages/cli',
-    ],
+    projects: ["packages/common", "packages/backend", "packages/frontend", "packages/cli"],
 
     // Root-only option: a repo-wide run that finds no tests must fail loudly.
     passWithNoTests: false,
@@ -597,22 +622,22 @@ export default defineConfig({
     // COVERAGE IS ROOT-ONLY. `coverage` is in Vitest's NonProjectOptions union;
     // a `coverage` block inside packages/*/vitest.config.ts is SILENTLY IGNORED.
     coverage: {
-      provider: 'v8',
+      provider: "v8",
 
       // CRITICAL — `coverage.all` was REMOVED in Vitest 4. Without an explicit
       // `include`, only files a test already imported are reported, so a wholly
       // untested file is invisible and the run reports a fraudulent green 100%.
-      include: ['packages/*/src/**/*.{ts,tsx}'],
+      include: ["packages/*/src/**/*.{ts,tsx}"],
 
       // `coverage.exclude` defaults to [] in Vitest 4 — every exclusion explicit.
       exclude: [
-        '**/*.d.ts',
-        '**/*.test.{ts,tsx}',
+        "**/*.d.ts",
+        "**/*.test.{ts,tsx}",
         // Pure re-export barrels ONLY (house rule: logic never lives in index.ts).
-        '**/index.ts',
+        "**/index.ts",
         // CLI bin wiring (commander setup + parseAsync); commands/utils are covered.
-        'packages/cli/src/main.ts',
-        '**/dist/**',
+        "packages/cli/src/main.ts",
+        "**/dist/**",
       ],
 
       // `100: true` === statements/functions/branches/lines: 100, self-documenting.
@@ -623,124 +648,131 @@ export default defineConfig({
         perFile: true,
       },
 
-      reportsDirectory: './coverage',
-      reporter: ['text-summary', 'html', 'lcov', 'json'],
+      reportsDirectory: "./coverage",
+      reporter: ["text-summary", "html", "lcov", "json"],
       reportOnFailure: true,
     },
   },
-})
+});
 ```
 
 ### `packages/common/vitest.config.ts`
+
 ```ts
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from "vitest/config";
 
 // NOTE: no `coverage` key here by design — it would be silently ignored.
 // Coverage lives only in the root vitest.config.ts.
 export default defineConfig({
   test: {
-    name: 'common',
-    environment: 'node',
+    name: "common",
+    environment: "node",
     globals: false,
-    include: ['src/**/*.test.ts'],
+    include: ["src/**/*.test.ts"],
   },
-})
+});
 ```
 
 ### `packages/backend/vitest.config.ts`
+
 ```ts
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from "vitest/config";
 
 // No `coverage` key — root-only. See vitest.config.ts at the repo root.
 export default defineConfig({
   test: {
-    name: 'backend',
-    environment: 'node',
+    name: "backend",
+    environment: "node",
     globals: false,
-    include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
-    setupFiles: ['./vitest.setup.ts'],
+    include: ["src/**/*.test.ts", "test/**/*.test.ts"],
+    setupFiles: ["./vitest.setup.ts"],
   },
-})
+});
 ```
 
 ### `packages/backend/vitest.setup.ts`
+
 ```ts
-import { beforeAll } from 'vitest'
+import { beforeAll } from "vitest";
 
 // Enforces the SSR-only contract: if any import in @nukesai-pos/backend reaches
 // for a browser global, fail fast rather than passing under jsdom-ish leakage.
 beforeAll(() => {
-  for (const domGlobal of ['window', 'document', 'navigator', 'localStorage']) {
+  for (const domGlobal of ["window", "document", "navigator", "localStorage"]) {
     if (domGlobal in globalThis) {
       throw new Error(
         `@nukesai-pos/backend is server-only but "${domGlobal}" is present in the test environment.`,
-      )
+      );
     }
   }
-})
+});
 ```
 
 ### `packages/frontend/vitest.config.ts`
+
 ```ts
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vitest/config'
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 
 // No `coverage` key — root-only. See vitest.config.ts at the repo root.
 export default defineConfig({
   plugins: [react()],
   test: {
-    name: 'frontend',
-    environment: 'jsdom',
+    name: "frontend",
+    environment: "jsdom",
     // globals:false keeps published-library discipline (explicit imports, no
     // ambient types). Consequence: RTL's auto-cleanup registers only
     // `if (typeof afterEach === 'function')`, which is FALSE here — so
     // vitest.setup.ts MUST call cleanup() itself (verified: omitting it leaks
     // the DOM across tests).
     globals: false,
-    include: ['src/**/*.test.{ts,tsx}', 'test/**/*.test.ts'],
-    setupFiles: ['./vitest.setup.ts'],
+    include: ["src/**/*.test.{ts,tsx}", "test/**/*.test.ts"],
+    setupFiles: ["./vitest.setup.ts"],
   },
-})
+});
 ```
 
 ### `packages/frontend/vitest.setup.ts`
+
 ```ts
-import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
+import "@testing-library/jest-dom/vitest";
+import { cleanup } from "@testing-library/react";
+import { afterEach } from "vitest";
 
 // REQUIRED because `globals: false` — @testing-library/react@16 only
 // self-registers cleanup when a global afterEach exists.
 afterEach(() => {
-  cleanup()
-})
+  cleanup();
+});
 ```
 
 ### `packages/cli/vitest.config.ts`
+
 ```ts
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from "vitest/config";
 
 // No `coverage` key — root-only. See vitest.config.ts at the repo root.
 export default defineConfig({
   test: {
-    name: 'cli',
-    environment: 'node',
+    name: "cli",
+    environment: "node",
     globals: false,
-    include: ['src/**/*.test.ts'],
+    include: ["src/**/*.test.ts"],
   },
-})
+});
 ```
 
 ### `playwright.config.ts`
-```ts
-import { defineConfig, devices } from '@playwright/test'
 
-const PORT = Number(process.env.E2E_PORT ?? 3100)
-const BASE_URL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`
+```ts
+import { defineConfig, devices } from "@playwright/test";
+
+const PORT = Number(process.env.E2E_PORT ?? 3100);
+const BASE_URL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
-  testDir: './e2e',
-  outputDir: './e2e/.artifacts',
+  testDir: "./e2e",
+  outputDir: "./e2e/.artifacts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -750,48 +782,50 @@ export default defineConfig({
 
   // 'blob' enables `playwright merge-reports` across sharded CI jobs later.
   reporter: process.env.CI
-    ? [['github'], ['blob'], ['html', { open: 'never' }]]
-    : [['list'], ['html', { open: 'never' }]],
+    ? [["github"], ["blob"], ["html", { open: "never" }]]
+    : [["list"], ["html", { open: "never" }]],
 
   use: {
     baseURL: BASE_URL,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
   },
 
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-    { name: 'mobile-safari', use: { ...devices['iPhone 15'] } },
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    { name: "mobile-safari", use: { ...devices["iPhone 15"] } },
   ],
 
   webServer: {
     // Production start, NOT dev: E2E exercises the same output Lighthouse would see.
-    command: 'pnpm --filter @nukesai-pos/example start',
+    command: "pnpm --filter @nukesai-pos/example start",
     url: BASE_URL,
     cwd: import.meta.dirname,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    stdout: 'ignore',
-    stderr: 'pipe',
+    stdout: "ignore",
+    stderr: "pipe",
     // Dedicated port so it never collides with a developer's `next dev` on 3000.
-    env: { PORT: String(PORT), NODE_ENV: 'production' },
+    env: { PORT: String(PORT), NODE_ENV: "production" },
   },
-})
+});
 ```
 
 ### `e2e/smoke.spec.ts`
-```ts
-import { expect, test } from '@playwright/test'
 
-test('example app serves the demo page', async ({ page }) => {
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: /nukes pos/i })).toBeVisible()
-})
+```ts
+import { expect, test } from "@playwright/test";
+
+test("example app serves the demo page", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /nukes pos/i })).toBeVisible();
+});
 ```
 
 ### `.size-limit.json`
+
 ```json
 [
   {
@@ -833,6 +867,7 @@ test('example app serves the demo page', async ({ page }) => {
 ```
 
 ### `.prettierrc.json`
+
 ```json
 {
   "$schema": "https://json.schemastore.org/prettierrc",
@@ -863,6 +898,7 @@ test('example app serves the demo page', async ({ page }) => {
 ```
 
 ### `.prettierignore`
+
 ```
 node_modules
 .next
@@ -881,6 +917,7 @@ packages/cli/templates
 ```
 
 ### `.lintstagedrc.json`
+
 ```json
 {
   "*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}": ["prettier --write"],
@@ -888,25 +925,31 @@ packages/cli/templates
   "**/package.json": ["prettier --write"]
 }
 ```
+
 (Prettier only — type-aware ESLint is far too slow for pre-commit; it runs in pre-push and CI where turbo caches it. Keep exactly ONE lint-staged config: v17 discovers configs across all git-tracked paths.)
 
 ### `.husky/pre-commit`
+
 ```
 lint-staged
 ```
 
 ### `.husky/commit-msg`
+
 ```
 commitlint --edit "$1"
 ```
 
 ### `.husky/pre-push`
+
 ```
 turbo run check-types lint --output-logs=errors-only
 ```
+
 (Husky 9 format: no shebang, no `husky.sh` sourcing — both are deprecated and will FAIL in husky 10. Files do not need the executable bit; husky's shim prepends `node_modules/.bin` to PATH.)
 
 ### `commitlint.config.js`
+
 ```js
 /** @type {import("@commitlint/types").UserConfig} */
 export default {
@@ -942,6 +985,7 @@ export default {
 ```
 
 ### `.syncpackrc.json`
+
 ```json
 {
   "versionGroups": [
@@ -976,9 +1020,11 @@ export default {
   ]
 }
 ```
+
 (No `sortAz`/`sortFirst` and never run `syncpack format` — package.json field order belongs to prettier-plugin-packagejson. Top-level `dependencyTypes` is deprecated in v15 and errors; it is only legal inside a group. The root package.json has a `version` field, avoiding v15's InvalidLocalVersion noise.)
 
 ### `knip.json`
+
 ```json
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
@@ -1043,9 +1089,11 @@ export default {
   }
 }
 ```
+
 (`classMembers` does not exist in knip 6 — it warns and ignores. Expect one tuning pass on first run; see Risk #8.)
 
 ### `.npmrc` (committed, repo root)
+
 ```
 # Registry pin ONLY. Deliberately NO _authToken line: npm/pnpm hard-error on an
 # unset ${NPM_TOKEN}, and this monorepo installs nothing private (internal deps
@@ -1056,6 +1104,7 @@ registry=https://registry.npmjs.org/
 ```
 
 ### `.gitignore`
+
 ```
 node_modules/
 dist/
@@ -1072,6 +1121,7 @@ e2e/.artifacts/
 ```
 
 ### `.vscode/settings.json`
+
 ```json
 {
   "// tsdk": "TS7 ships no tsserver and no language-service plugins, so the Next.js editor plugin only works on a TS 5/6 tsserver. Point the editor at the TS6 alias that eslint-config carries. CI and builds still use TS 7.0.2.",
@@ -1081,6 +1131,7 @@ e2e/.artifacts/
 ```
 
 ### `.changeset/config.json`
+
 ```json
 {
   "$schema": "https://unpkg.com/@changesets/config@3.0.1/schema.json",
@@ -1091,12 +1142,7 @@ e2e/.artifacts/
   "updateInternalDependencies": "patch",
   "bumpVersionsWithWorkspaceProtocolOnly": true,
   "fixed": [
-    [
-      "@nukesai-pos/common",
-      "@nukesai-pos/backend",
-      "@nukesai-pos/frontend",
-      "@nukesai-pos/cli"
-    ]
+    ["@nukesai-pos/common", "@nukesai-pos/backend", "@nukesai-pos/frontend", "@nukesai-pos/cli"]
   ],
   "linked": [],
   "ignore": [],
@@ -1113,6 +1159,7 @@ e2e/.artifacts/
 ```
 
 ### `.github/workflows/ci.yml`
+
 ```yaml
 name: CI
 
@@ -1260,7 +1307,8 @@ jobs:
 ```
 
 ### `.github/workflows/release.yml`
-```yaml
+
+````yaml
 name: Release
 
 on:
@@ -1350,39 +1398,41 @@ jobs:
             echo '${{ steps.changesets.outputs.published-packages }}'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-```
+````
 
 ### `scripts/assert-coverage-gate-fails.mjs`
+
 ```js
 // Proves the 100% coverage gate is real. Writes a deliberately untested source
 // file, asserts `vitest run --coverage` FAILS, then removes it. Catches the
 // Vitest 4 trap where a missing `coverage.include` yields a fraudulent 100%.
-import { execSync } from 'node:child_process'
-import { rmSync, writeFileSync } from 'node:fs'
+import { execSync } from "node:child_process";
+import { rmSync, writeFileSync } from "node:fs";
 
-const canary = 'packages/common/src/money/__coverage_canary__.ts'
-writeFileSync(canary, 'export const canary = (): string => "untested"\n')
+const canary = "packages/common/src/money/__coverage_canary__.ts";
+writeFileSync(canary, 'export const canary = (): string => "untested"\n');
 
-let failedAsExpected = false
+let failedAsExpected = false;
 try {
-  execSync('pnpm exec vitest run --coverage', { stdio: 'ignore' })
+  execSync("pnpm exec vitest run --coverage", { stdio: "ignore" });
 } catch {
-  failedAsExpected = true
+  failedAsExpected = true;
 } finally {
-  rmSync(canary, { force: true })
+  rmSync(canary, { force: true });
 }
 
 if (!failedAsExpected) {
   console.error(
-    'COVERAGE GATE IS BROKEN: an untested file did not fail the build.\n' +
-      'Most likely `coverage.include` is missing from the root vitest.config.ts.',
-  )
-  process.exit(1)
+    "COVERAGE GATE IS BROKEN: an untested file did not fail the build.\n"
+      + "Most likely `coverage.include` is missing from the root vitest.config.ts.",
+  );
+  process.exit(1);
 }
-console.log('Coverage gate verified: untested code fails the build.')
+console.log("Coverage gate verified: untested code fails the build.");
 ```
 
 ### `LICENSE` (root; copied verbatim into each published package directory)
+
 ```
 PROPRIETARY SOFTWARE LICENSE
 
@@ -1457,6 +1507,7 @@ For licensing enquiries contact: info@nukesai.com
 ---
 
 ### `packages/typescript-config/package.json`
+
 ```json
 {
   "name": "@nukesai-pos/typescript-config",
@@ -1467,6 +1518,7 @@ For licensing enquiries contact: info@nukesai.com
 ```
 
 ### `packages/typescript-config/base.json`
+
 ```json
 {
   "$schema": "https://json.schemastore.org/tsconfig",
@@ -1504,9 +1556,11 @@ For licensing enquiries contact: info@nukesai.com
   "exclude": ["node_modules", "dist", ".next", "coverage", "**/*.tsbuildinfo"]
 }
 ```
+
 (Every TS7-changed default is pinned so the preset is version-independent. No `tsBuildInfoFile` — it resolves relative to the file that declares it, verified; `*.tsbuildinfo` is gitignored.)
 
 ### `packages/typescript-config/library.json`
+
 ```json
 {
   "$schema": "https://json.schemastore.org/tsconfig",
@@ -1518,9 +1572,11 @@ For licensing enquiries contact: info@nukesai.com
   "include": ["src/**/*.ts"]
 }
 ```
+
 (`isolatedDeclarations: true` is the load-bearing line — it forces tsdown onto the stable oxc dts generator instead of the experimental tsgo one. Emission itself is tsdown's job; per-package tsconfigs stay `noEmit` and widen `include` to cover tests.)
 
 ### `packages/typescript-config/react-library.json`
+
 ```json
 {
   "$schema": "https://json.schemastore.org/tsconfig",
@@ -1537,6 +1593,7 @@ For licensing enquiries contact: info@nukesai.com
 ```
 
 ### `packages/typescript-config/nextjs.json`
+
 ```json
 {
   "$schema": "https://json.schemastore.org/tsconfig",
@@ -1565,11 +1622,13 @@ For licensing enquiries contact: info@nukesai.com
   "exclude": ["node_modules", ".next", "dist"]
 }
 ```
+
 (jsx and include are pre-set to Next 16.3's tsconfig fixed point — verified that `next typegen` then leaves the file byte-identical. The `plugins` entry is inert under TS7 and active when the editor uses the TS6 tsdk.)
 
 ---
 
 ### `packages/eslint-config/package.json`
+
 ```json
 {
   "name": "@nukesai-pos/eslint-config",
@@ -1602,9 +1661,11 @@ For licensing enquiries contact: info@nukesai.com
   }
 }
 ```
+
 (THE HYBRID: the `npm:` alias is scoped to this package only, so typescript-eslint gets the TS6 JS API while the rest of the monorepo runs TS 7.0.2. Verified in a real pnpm workspace: estree resolves @typescript/typescript6@6.0.2, root `.bin/tsc` stays 7.0.2, zero peer warnings, no bin collision — typescript6's bin is `tsc6`.)
 
 ### `packages/eslint-config/base.js`
+
 ```js
 import js from "@eslint/js";
 import prettier from "eslint-config-prettier/flat";
@@ -1668,7 +1729,11 @@ export function createBaseConfig({ tsconfigRootDir }) {
         // --- published-package hygiene (tree-shaking + d.ts correctness) ---
         "@typescript-eslint/consistent-type-imports": [
           "error",
-          { prefer: "type-imports", fixStyle: "inline-type-imports", disallowTypeAnnotations: true },
+          {
+            prefer: "type-imports",
+            fixStyle: "inline-type-imports",
+            disallowTypeAnnotations: true,
+          },
         ],
         "@typescript-eslint/consistent-type-exports": [
           "error",
@@ -1735,6 +1800,7 @@ export default createBaseConfig;
 ```
 
 ### `packages/eslint-config/react.js`
+
 ```js
 import nextPlugin from "@next/eslint-plugin-next";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -1792,6 +1858,7 @@ export default createReactConfig;
 ```
 
 ### `packages/eslint-config/boundaries.js`
+
 ```js
 /**
  * @nukesai-pos/eslint-config/boundaries
@@ -1808,16 +1875,63 @@ import { createTypeScriptImportResolver } from "eslint-import-resolver-typescrip
 
 /** Bare + `node:`-prefixed builtins. `no-restricted-imports` matches specifier strings. */
 export const NODE_BUILTINS = [
-  "node:*", "assert", "async_hooks", "buffer", "child_process", "cluster",
-  "console", "constants", "crypto", "dgram", "dns", "domain", "events", "fs",
-  "fs/*", "http", "http2", "https", "inspector", "module", "net", "os", "path",
-  "path/*", "perf_hooks", "process", "punycode", "querystring", "readline",
-  "repl", "stream", "stream/*", "string_decoder", "timers", "timers/*", "tls",
-  "trace_events", "tty", "url", "util", "util/*", "v8", "vm", "worker_threads", "zlib",
+  "node:*",
+  "assert",
+  "async_hooks",
+  "buffer",
+  "child_process",
+  "cluster",
+  "console",
+  "constants",
+  "crypto",
+  "dgram",
+  "dns",
+  "domain",
+  "events",
+  "fs",
+  "fs/*",
+  "http",
+  "http2",
+  "https",
+  "inspector",
+  "module",
+  "net",
+  "os",
+  "path",
+  "path/*",
+  "perf_hooks",
+  "process",
+  "punycode",
+  "querystring",
+  "readline",
+  "repl",
+  "stream",
+  "stream/*",
+  "string_decoder",
+  "timers",
+  "timers/*",
+  "tls",
+  "trace_events",
+  "tty",
+  "url",
+  "util",
+  "util/*",
+  "v8",
+  "vm",
+  "worker_threads",
+  "zlib",
 ];
 
 const SERVER_PKGS = ["@nukesai-pos/backend", "@nukesai-pos/backend/**"];
-const DOM_GLOBALS = ["window", "document", "navigator", "localStorage", "sessionStorage", "location", "history"];
+const DOM_GLOBALS = [
+  "window",
+  "document",
+  "navigator",
+  "localStorage",
+  "sessionStorage",
+  "location",
+  "history",
+];
 
 const DOC = "See docs/architecture/isolation.md.";
 
@@ -1911,9 +2025,18 @@ export const isomorphicZone = {
       "error",
       {
         patterns: [
-          { group: NODE_BUILTINS, message: `@nukesai-pos/common is isomorphic: no Node builtins. ${DOC}` },
           {
-            group: [...SERVER_PKGS, "@nukesai-pos/frontend", "@nukesai-pos/frontend/**", "server-only", "client-only"],
+            group: NODE_BUILTINS,
+            message: `@nukesai-pos/common is isomorphic: no Node builtins. ${DOC}`,
+          },
+          {
+            group: [
+              ...SERVER_PKGS,
+              "@nukesai-pos/frontend",
+              "@nukesai-pos/frontend/**",
+              "server-only",
+              "client-only",
+            ],
             message: `@nukesai-pos/common is a leaf package and imports neither sibling nor a runtime pin. ${DOC}`,
           },
         ],
@@ -1928,7 +2051,11 @@ export const isomorphicZone = {
     ],
     "no-restricted-properties": [
       "error",
-      { object: "process", property: "env", message: `isomorphic code must not read process.env; take config as a parameter. ${DOC}` },
+      {
+        object: "process",
+        property: "env",
+        message: `isomorphic code must not read process.env; take config as a parameter. ${DOC}`,
+      },
     ],
   },
 };
@@ -1958,6 +2085,7 @@ export function boundaries({ packageDir, zone }) {
 ---
 
 ### `packages/common/package.json`
+
 ```json
 {
   "name": "@nukesai-pos/common",
@@ -2035,30 +2163,31 @@ export function boundaries({ packageDir, zone }) {
 ```
 
 ### `packages/common/tsdown.config.ts`
+
 ```ts
-import { defineConfig } from 'tsdown'
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  name: '@nukesai-pos/common',
+  name: "@nukesai-pos/common",
   entry: {
-    index: 'src/index.ts',
-    'types/index': 'src/types/index.ts',
-    'constants/index': 'src/constants/index.ts',
-    'schemas/index': 'src/schemas/index.ts',
-    'i18n/index': 'src/i18n/index.ts',
-    'runtime/index': 'src/runtime/index.ts',
+    index: "src/index.ts",
+    "types/index": "src/types/index.ts",
+    "constants/index": "src/constants/index.ts",
+    "schemas/index": "src/schemas/index.ts",
+    "i18n/index": "src/i18n/index.ts",
+    "runtime/index": "src/runtime/index.ts",
     // Glob key: one file per locale so importing `ne` never pays for `en`.
-    'i18n/locales/*': './src/i18n/locales/*.ts',
+    "i18n/locales/*": "./src/i18n/locales/*.ts",
   },
   // Pins the dist layout so the hand-written exports map cannot drift.
-  root: 'src',
-  format: 'esm',
+  root: "src",
+  format: "esm",
   // Isomorphic: must not assume Node builtins.
-  platform: 'neutral',
-  target: 'es2022',
+  platform: "neutral",
+  target: "es2022",
   // Force the stable oxc generator; never fall back to the experimental tsgo
   // one that tsdown auto-selects when typescript@7 is installed.
-  dts: { generator: 'oxc', sourcemap: true },
+  dts: { generator: "oxc", sourcemap: true },
   // Mirrors src/ into dist/ -> per-module tree-shaking and lazy import()
   // splitting in the consumer app.
   unbundle: true,
@@ -2078,13 +2207,14 @@ export default defineConfig({
   exports: false,
   publint: true,
   // Exact literal is 'esm-only' (hyphenated); 'esmOnly' silently no-ops.
-  attw: { profile: 'esm-only', level: 'error' },
+  attw: { profile: "esm-only", level: "error" },
   report: true,
-  failOnWarn: 'ci-only',
-})
+  failOnWarn: "ci-only",
+});
 ```
 
 ### `packages/common/eslint.config.js`
+
 ```js
 import { createBaseConfig } from "@nukesai-pos/eslint-config/base";
 import { boundaries } from "@nukesai-pos/eslint-config/boundaries";
@@ -2096,6 +2226,7 @@ export default [
 ```
 
 ### `packages/common/tsconfig.json`
+
 ```json
 {
   "extends": "@nukesai-pos/typescript-config/library.json",
@@ -2108,6 +2239,7 @@ export default [
 ```
 
 ### `packages/common/src/runtime/guard.ts`
+
 ```ts
 export type Runtime = "server" | "client";
 
@@ -2125,9 +2257,9 @@ export class RuntimeBoundaryError extends Error {
 
   constructor(expected: Runtime, moduleId: string) {
     super(
-      `[@nukesai-pos] Runtime boundary violated: "${moduleId}" is ${expected}-only ` +
-        `but was evaluated in the ${expected === "server" ? "client" : "server"} runtime. ` +
-        `This means a build-time guard was bypassed. See docs/architecture/isolation.md.`,
+      `[@nukesai-pos] Runtime boundary violated: "${moduleId}" is ${expected}-only `
+        + `but was evaluated in the ${expected === "server" ? "client" : "server"} runtime. `
+        + `This means a build-time guard was bypassed. See docs/architecture/isolation.md.`,
     );
   }
 }
@@ -2146,11 +2278,13 @@ export function assertClientRuntime(moduleId: string): void {
   if (!isBrowser()) throw new RuntimeBoundaryError("client", moduleId);
 }
 ```
+
 (`src/runtime/index.ts` is a pure re-export barrel: `export * from "./guard.js"` — the barrel/logic split keeps the `**/index.ts` coverage exclusion truthful. Note: this file deliberately references `window` via `typeof` guards only; it carries an eslint-disable for the isomorphic `no-restricted-globals` rule with a justification comment.)
 
 ---
 
 ### `packages/backend/package.json`
+
 ```json
 {
   "name": "@nukesai-pos/backend",
@@ -2221,26 +2355,28 @@ export function assertClientRuntime(moduleId: string): void {
   }
 }
 ```
+
 (Deliberately NO react/react-dom peers — that omission is the package.json-level enforcement of "backend never renders UI".)
 
 ### `packages/backend/tsdown.config.ts`
+
 ```ts
-import { defineConfig } from 'tsdown'
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  name: '@nukesai-pos/backend',
+  name: "@nukesai-pos/backend",
   entry: {
-    index: 'src/index.ts',
-    'ports/index': 'src/ports/index.ts',
-    'adapters/demo/index': 'src/adapters/demo/index.ts',
+    index: "src/index.ts",
+    "ports/index": "src/ports/index.ts",
+    "adapters/demo/index": "src/adapters/demo/index.ts",
     // Throws on import; wired into guarded exports via the "browser" condition.
-    _browser_guard: 'src/internal/browser-guard.ts',
+    _browser_guard: "src/internal/browser-guard.ts",
   },
-  root: 'src',
-  format: 'esm',
-  platform: 'node',
-  target: 'es2022',
-  dts: { generator: 'oxc', sourcemap: true },
+  root: "src",
+  format: "esm",
+  platform: "node",
+  target: "es2022",
+  dts: { generator: "oxc", sourcemap: true },
   // Keeps the adapter/port boundary 1:1 with dist so a driver can be swapped
   // later, and preserves the `import "server-only"` lines per file.
   unbundle: true,
@@ -2256,13 +2392,14 @@ export default defineConfig({
   deps: { neverBundle: true },
   exports: false,
   publint: true,
-  attw: { profile: 'esm-only', level: 'error' },
+  attw: { profile: "esm-only", level: "error" },
   report: true,
-  failOnWarn: 'ci-only',
-})
+  failOnWarn: "ci-only",
+});
 ```
 
 ### `packages/backend/eslint.config.js`
+
 ```js
 import { createBaseConfig } from "@nukesai-pos/eslint-config/base";
 import { boundaries } from "@nukesai-pos/eslint-config/boundaries";
@@ -2283,7 +2420,12 @@ export default [
           ],
           patterns: [
             {
-              group: ["@nukesai-pos/frontend", "@nukesai-pos/frontend/**", "react/*", "react-dom/*"],
+              group: [
+                "@nukesai-pos/frontend",
+                "@nukesai-pos/frontend/**",
+                "react/*",
+                "react-dom/*",
+              ],
               message: "@nukesai-pos/backend never imports UI code.",
             },
           ],
@@ -2295,18 +2437,26 @@ export default [
 ```
 
 ### `packages/backend/tsconfig.json`
+
 ```json
 {
   "extends": "@nukesai-pos/typescript-config/library.json",
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "tsdown.config.ts", "vitest.config.ts", "vitest.setup.ts"],
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "tsdown.config.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
 ```
 
 ### `packages/backend/src/internal/browser-guard.ts`
+
 ```ts
 // Resolved by the "browser" export condition. Reaching this module means a
 // client component imported a server-only entry point.
@@ -2315,56 +2465,58 @@ export default [
 //   Export <name> doesn't exist in target module .../_browser_guard.js [app-client]
 // and the real server module is absent from .next/static.
 throw new Error(
-  '[@nukesai-pos/backend] This module is server-only and cannot be imported ' +
-    'from a Client Component. Import UI from "@nukesai-pos/frontend/client", ' +
-    'or move the call into a Server Component / Route Handler.',
-)
+  "[@nukesai-pos/backend] This module is server-only and cannot be imported "
+    + 'from a Client Component. Import UI from "@nukesai-pos/frontend/client", '
+    + "or move the call into a Server Component / Route Handler.",
+);
 
-export {}
+export {};
 ```
 
 ### `packages/backend/test/boundary.dist.test.ts`
-```ts
-import { describe, expect, it } from 'vitest'
-import { existsSync, readFileSync } from 'node:fs'
-import { glob } from 'node:fs/promises'
-import path from 'node:path'
 
-const DIST = path.join(import.meta.dirname, '..', 'dist')
+```ts
+import { describe, expect, it } from "vitest";
+import { existsSync, readFileSync } from "node:fs";
+import { glob } from "node:fs/promises";
+import path from "node:path";
+
+const DIST = path.join(import.meta.dirname, "..", "dist");
 
 const files = async (pattern: string): Promise<string[]> =>
-  (await Array.fromAsync(glob(pattern, { cwd: DIST }))).sort()
-const read = (f: string): string => readFileSync(path.join(DIST, f), 'utf8')
+  (await Array.fromAsync(glob(pattern, { cwd: DIST }))).sort();
+const read = (f: string): string => readFileSync(path.join(DIST, f), "utf8");
 
-const USE_CLIENT = /^\s*["']use client["'];/m
-const SERVER_ONLY = /import\s*["']server-only["']/
+const USE_CLIENT = /^\s*["']use client["'];/m;
+const SERVER_ONLY = /import\s*["']server-only["']/;
 
-describe('backend dist boundary contract', () => {
-  it('emits the browser guard, its types, and the guard throws', () => {
-    expect(existsSync(path.join(DIST, '_browser_guard.js'))).toBe(true)
-    expect(existsSync(path.join(DIST, 'index.d.ts'))).toBe(true)
-    expect(read('_browser_guard.js')).toContain('server-only and cannot be imported')
-  })
+describe("backend dist boundary contract", () => {
+  it("emits the browser guard, its types, and the guard throws", () => {
+    expect(existsSync(path.join(DIST, "_browser_guard.js"))).toBe(true);
+    expect(existsSync(path.join(DIST, "index.d.ts"))).toBe(true);
+    expect(read("_browser_guard.js")).toContain("server-only and cannot be imported");
+  });
 
-  it('guarded entries keep their server-only poison pill', () => {
-    for (const file of ['index.js', 'adapters/demo/index.js']) {
-      expect(read(file), `${file} lost its import "server-only"`).toMatch(SERVER_ONLY)
+  it("guarded entries keep their server-only poison pill", () => {
+    for (const file of ["index.js", "adapters/demo/index.js"]) {
+      expect(read(file), `${file} lost its import "server-only"`).toMatch(SERVER_ONLY);
     }
-  })
+  });
 
   it('no chunk is ever marked "use client"', async () => {
-    const all = await files('**/*.js')
-    expect(all.length).toBeGreaterThan(0)
+    const all = await files("**/*.js");
+    expect(all.length).toBeGreaterThan(0);
     for (const file of all) {
-      expect(read(file), `${file} is wrongly marked as a client module`).not.toMatch(USE_CLIENT)
+      expect(read(file), `${file} is wrongly marked as a client module`).not.toMatch(USE_CLIENT);
     }
-  })
-})
+  });
+});
 ```
 
 ---
 
 ### `packages/frontend/package.json`
+
 ```json
 {
   "name": "@nukesai-pos/frontend",
@@ -2441,24 +2593,26 @@ describe('backend dist boundary contract', () => {
   }
 }
 ```
+
 (NO root `.` export — the SSR/CSR boundary is un-violatable by construction: no import specifier yields both halves.)
 
 ### `packages/frontend/tsdown.config.ts`
+
 ```ts
-import { defineConfig } from 'tsdown'
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  name: '@nukesai-pos/frontend',
+  name: "@nukesai-pos/frontend",
   entry: {
-    'server/index': 'src/server/index.ts',
-    'client/index': 'src/client/index.ts',
+    "server/index": "src/server/index.ts",
+    "client/index": "src/client/index.ts",
   },
-  root: 'src',
-  format: 'esm',
+  root: "src",
+  format: "esm",
   // Runs in the RSC layer (node) AND in the browser -> no runtime assumptions.
-  platform: 'neutral',
-  target: 'es2022',
-  dts: { generator: 'oxc', sourcemap: true },
+  platform: "neutral",
+  target: "es2022",
+  dts: { generator: "oxc", sourcemap: true },
 
   // -------------------------------------------------------------------------
   // MANDATORY. rolldown preserves `"use client"` / `"use server"` ONLY in
@@ -2481,17 +2635,18 @@ export default defineConfig({
   exports: false,
   publint: true,
   attw: {
-    profile: 'esm-only',
-    level: 'error',
+    profile: "esm-only",
+    level: "error",
     // attw reports "No resolution" for non-JS subpaths like ./styles.css.
     excludeEntrypoints: [/\.css$/],
   },
   report: true,
-  failOnWarn: 'ci-only',
-})
+  failOnWarn: "ci-only",
+});
 ```
 
 ### `packages/frontend/eslint.config.js`
+
 ```js
 import { createReactConfig } from "@nukesai-pos/eslint-config/react";
 import { boundaries } from "@nukesai-pos/eslint-config/boundaries";
@@ -2510,7 +2665,7 @@ export default [
         {
           selector: "ExpressionStatement > Literal[value='use client']",
           message:
-            "Never put \"use client\" on a barrel/index file — it drags the whole package into the consumer's client bundle. Mark the leaf component instead.",
+            'Never put "use client" on a barrel/index file — it drags the whole package into the consumer\'s client bundle. Mark the leaf component instead.',
         },
         {
           selector: "TSEnumDeclaration",
@@ -2524,6 +2679,7 @@ export default [
 ```
 
 ### `packages/frontend/tsconfig.json`
+
 ```json
 {
   "extends": "@nukesai-pos/typescript-config/react-library.json",
@@ -2543,6 +2699,7 @@ export default [
 ```
 
 ### `packages/frontend/styles.css`
+
 ```css
 /* Consumer usage:  @import "@nukesai-pos/frontend/styles.css";
  *
@@ -2555,67 +2712,70 @@ export default [
 ```
 
 ### `packages/frontend/test/boundary.dist.test.ts`
-```ts
-import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { glob } from 'node:fs/promises'
-import path from 'node:path'
 
-const DIST = path.join(import.meta.dirname, '..', 'dist')
+```ts
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { glob } from "node:fs/promises";
+import path from "node:path";
+
+const DIST = path.join(import.meta.dirname, "..", "dist");
 
 const files = async (pattern: string): Promise<string[]> =>
-  (await Array.fromAsync(glob(pattern, { cwd: DIST }))).sort()
-const read = (f: string): string => readFileSync(path.join(DIST, f), 'utf8')
-const isBarrel = (f: string): boolean => path.basename(f) === 'index.js'
+  (await Array.fromAsync(glob(pattern, { cwd: DIST }))).sort();
+const read = (f: string): string => readFileSync(path.join(DIST, f), "utf8");
+const isBarrel = (f: string): boolean => path.basename(f) === "index.js";
 
-const NODE_BUILTIN = /\bfrom\s*["'](?:node:|fs["']|path["']|crypto["']|child_process["']|os["']|net["']|tls["'])/
-const USE_CLIENT = /^\s*["']use client["'];/m
-const SERVER_ONLY = /import\s*["']server-only["']/
+const NODE_BUILTIN =
+  /\bfrom\s*["'](?:node:|fs["']|path["']|crypto["']|child_process["']|os["']|net["']|tls["'])/;
+const USE_CLIENT = /^\s*["']use client["'];/m;
+const SERVER_ONLY = /import\s*["']server-only["']/;
 
-describe('frontend dist boundary contract', () => {
+describe("frontend dist boundary contract", () => {
   it('every client leaf chunk keeps its "use client" directive', async () => {
-    const leaves = (await files('client/**/*.js')).filter((f) => !isBarrel(f))
+    const leaves = (await files("client/**/*.js")).filter((f) => !isBarrel(f));
     // Guards against the glob silently matching nothing (vacuous pass).
-    expect(leaves.length).toBeGreaterThan(0)
+    expect(leaves.length).toBeGreaterThan(0);
     for (const file of leaves) {
       expect(read(file), `${file} lost its "use client" directive during bundling`).toMatch(
         USE_CLIENT,
-      )
+      );
     }
-  })
+  });
 
   it('no barrel carries "use client" (it would leak unused exports to the client bundle)', async () => {
-    const barrels = (await files('**/*.js')).filter(isBarrel)
-    expect(barrels.length).toBeGreaterThan(0)
+    const barrels = (await files("**/*.js")).filter(isBarrel);
+    expect(barrels.length).toBeGreaterThan(0);
     for (const file of barrels) {
-      expect(read(file), `FORBIDDEN "use client" on barrel: ${file}`).not.toMatch(USE_CLIENT)
+      expect(read(file), `FORBIDDEN "use client" on barrel: ${file}`).not.toMatch(USE_CLIENT);
     }
-  })
+  });
 
-  it('no client chunk imports server-only or a node builtin', async () => {
-    for (const file of await files('client/**/*.js')) {
-      const src = read(file)
-      expect(src, `${file} imports server-only`).not.toMatch(SERVER_ONLY)
-      expect(src, `${file} imports a node builtin`).not.toMatch(NODE_BUILTIN)
+  it("no client chunk imports server-only or a node builtin", async () => {
+    for (const file of await files("client/**/*.js")) {
+      const src = read(file);
+      expect(src, `${file} imports server-only`).not.toMatch(SERVER_ONLY);
+      expect(src, `${file} imports a node builtin`).not.toMatch(NODE_BUILTIN);
     }
-  })
+  });
 
   it('no server chunk is marked "use client", and the server entry keeps its poison pill', async () => {
-    const serverFiles = await files('server/**/*.js')
-    expect(serverFiles.length).toBeGreaterThan(0)
+    const serverFiles = await files("server/**/*.js");
+    expect(serverFiles.length).toBeGreaterThan(0);
     for (const file of serverFiles) {
-      expect(read(file), `${file} is wrongly marked as a client module`).not.toMatch(USE_CLIENT)
+      expect(read(file), `${file} is wrongly marked as a client module`).not.toMatch(USE_CLIENT);
     }
-    expect(read('server/index.js'), 'server/index.js lost import "server-only"').toMatch(
+    expect(read("server/index.js"), 'server/index.js lost import "server-only"').toMatch(
       SERVER_ONLY,
-    )
-  })
-})
+    );
+  });
+});
 ```
 
 ---
 
 ### `packages/cli/package.json`
+
 ```json
 {
   "name": "@nukesai-pos/cli",
@@ -2676,22 +2836,24 @@ describe('frontend dist boundary contract', () => {
   }
 }
 ```
+
 (commander pinned to 14.x — commander 15 requires node >=22.12 while Next 16 supports >=20.9, so 15 would reject valid consumer environments. ESM-only because @clack/prompts ships no CJS condition.)
 
 ### `packages/cli/tsdown.config.ts`
+
 ```ts
-import { defineConfig } from 'tsdown'
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  name: '@nukesai-pos/cli',
+  name: "@nukesai-pos/cli",
   entry: {
-    main: 'src/main.ts',
+    main: "src/main.ts",
   },
-  root: 'src',
-  format: 'esm',
-  platform: 'node',
-  target: 'es2022',
-  dts: { generator: 'oxc', sourcemap: true },
+  root: "src",
+  format: "esm",
+  platform: "node",
+  target: "es2022",
+  dts: { generator: "oxc", sourcemap: true },
   unbundle: true,
   hash: false,
   fixedExtension: false,
@@ -2703,13 +2865,14 @@ export default defineConfig({
   deps: { neverBundle: true },
   exports: false,
   publint: true,
-  attw: { profile: 'esm-only', level: 'error' },
+  attw: { profile: "esm-only", level: "error" },
   report: true,
-  failOnWarn: 'ci-only',
-})
+  failOnWarn: "ci-only",
+});
 ```
 
 ### `packages/cli/eslint.config.js`
+
 ```js
 import { createBaseConfig } from "@nukesai-pos/eslint-config/base";
 
@@ -2728,6 +2891,7 @@ export default [
 ```
 
 ### `packages/cli/tsconfig.json`
+
 ```json
 {
   "extends": "@nukesai-pos/typescript-config/library.json",
@@ -2740,6 +2904,7 @@ export default [
 ```
 
 ### `packages/cli/src/main.ts`
+
 ```ts
 #!/usr/bin/env node
 import { cancel, isCancel, log } from "@clack/prompts";
@@ -2837,6 +3002,7 @@ try {
 ```
 
 ### `packages/cli/src/utils/detect.ts`
+
 ```ts
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -2861,7 +3027,12 @@ export interface ProjectInfo {
 const IGNORE = ["**/node_modules/**", "**/.next/**", "**/public/**", "**/dist/**", "**/build/**"];
 
 export async function detectProject(cwd: string): Promise<ProjectInfo> {
-  const [nextConfig] = await glob(["next.config.*"], { cwd, ignore: IGNORE, deep: 1, absolute: true });
+  const [nextConfig] = await glob(["next.config.*"], {
+    cwd,
+    ignore: IGNORE,
+    deep: 1,
+    absolute: true,
+  });
   if (nextConfig === undefined) {
     throw new Error("No next.config.* found. Run this inside a Next.js application.");
   }
@@ -2900,6 +3071,7 @@ export async function detectProject(cwd: string): Promise<ProjectInfo> {
 ```
 
 ### `packages/cli/src/utils/patch.ts`
+
 ```ts
 import { readFile, writeFile as fsWriteFile } from "node:fs/promises";
 
@@ -2958,6 +3130,7 @@ export async function patchTsconfig(tsconfigPath: string, dryRun: boolean): Prom
 ```
 
 ### `packages/cli/src/utils/stamp.ts`
+
 ```ts
 import { createHash } from "node:crypto";
 
@@ -2994,6 +3167,7 @@ export function inspect(contents: string): StampState {
 ```
 
 ### `packages/cli/templates/consumer/.npmrc`
+
 ```
 # Authentication for @nukesai-pos restricted packages.
 # Set NPM_TOKEN in your shell / CI secrets to a granular access token with
@@ -3006,6 +3180,7 @@ export function inspect(contents: string): StampState {
 ---
 
 ### `apps/example/package.json`
+
 ```json
 {
   "name": "@nukesai-pos/example",
@@ -3038,29 +3213,32 @@ export function inspect(contents: string): StampState {
   }
 }
 ```
+
 (`start` reads PORT from the environment — playwright.config.ts sets PORT=3100. `next typegen && tsc` is the documented Next 16 pattern: typegen exits non-zero so `tsc` halts instead of running on stale types.)
 
 ### `apps/example/next.config.ts`
+
 ```ts
-import type { NextConfig } from 'next'
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Required once a real DB/ORM driver is dropped into the adapter port —
   // Next bundles Server Component imports by default and native drivers break.
-  serverExternalPackages: ['@nukesai-pos/backend'],
+  serverExternalPackages: ["@nukesai-pos/backend"],
 
   experimental: {
     // Still flagged experimental in 16.3.1. Belt-and-braces on top of the
     // multi-subpath + leaf-directive + sideEffects design, which was verified
     // to tree-shake correctly WITHOUT this flag.
-    optimizePackageImports: ['@nukesai-pos/frontend', '@nukesai-pos/common'],
+    optimizePackageImports: ["@nukesai-pos/frontend", "@nukesai-pos/common"],
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;
 ```
 
 ### `apps/example/tsconfig.json`
+
 ```json
 {
   "extends": "@nukesai-pos/typescript-config/nextjs.json"
@@ -3068,6 +3246,7 @@ export default nextConfig
 ```
 
 ### `apps/example/eslint.config.js`
+
 ```js
 import { createReactConfig } from "@nukesai-pos/eslint-config/react";
 
@@ -3077,7 +3256,8 @@ export default [...createReactConfig({ tsconfigRootDir: import.meta.dirname })];
 ---
 
 ### `docs/architecture/isolation.md`
-```md
+
+````md
 # Server/Client Isolation Contract
 
 > Normative. Every rule here is enforced by a machine. If a rule is not
@@ -3085,14 +3265,14 @@ export default [...createReactConfig({ tsconfigRootDir: import.meta.dirname })];
 
 ## 1. Mechanisms and what each actually guarantees
 
-| Mechanism | Layer | Guarantee | Failure mode if used alone |
-| --- | --- | --- | --- |
-| `"use client"` directive | Bundler | Marks the **entry to a client subtree**. Every module it imports joins the client graph. | Says what *may* ship to the browser. Never prevents anything. |
-| `"use server"` directive | Bundler + React | Marks Server Functions; they cross the boundary as a *reference*, not as code. | Not an access-control mechanism. |
-| `react-server` export condition | Resolver | Lets one specifier resolve to **different files** in the RSC graph vs the client graph. | Silently no-ops if the bundler does not set the condition. |
-| `browser` export condition → throwing guard | Resolver | Turbopack resolves it in the app-client layer; the build **fails** there and the real module never enters `.next/static`. Verified. | Error message is cryptic (see §2). |
-| `server-only` / `client-only` | Resolver + module eval | The **poison pill**. Build-time error on wrong-graph import. | Only fires if the import survives tree-shaking. |
-| Runtime guard (`assertServerRuntime`) | Runtime | Last-resort throw if a module is *evaluated* in the wrong runtime. | Runs too late to protect a build; catches misconfiguration, not mistakes. |
+| Mechanism                                   | Layer                  | Guarantee                                                                                                                           | Failure mode if used alone                                                |
+| ------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `"use client"` directive                    | Bundler                | Marks the **entry to a client subtree**. Every module it imports joins the client graph.                                            | Says what _may_ ship to the browser. Never prevents anything.             |
+| `"use server"` directive                    | Bundler + React        | Marks Server Functions; they cross the boundary as a _reference_, not as code.                                                      | Not an access-control mechanism.                                          |
+| `react-server` export condition             | Resolver               | Lets one specifier resolve to **different files** in the RSC graph vs the client graph.                                             | Silently no-ops if the bundler does not set the condition.                |
+| `browser` export condition → throwing guard | Resolver               | Turbopack resolves it in the app-client layer; the build **fails** there and the real module never enters `.next/static`. Verified. | Error message is cryptic (see §2).                                        |
+| `server-only` / `client-only`               | Resolver + module eval | The **poison pill**. Build-time error on wrong-graph import.                                                                        | Only fires if the import survives tree-shaking.                           |
+| Runtime guard (`assertServerRuntime`)       | Runtime                | Last-resort throw if a module is _evaluated_ in the wrong runtime.                                                                  | Runs too late to protect a build; catches misconfiguration, not mistakes. |
 
 ### How the poison pill works
 
@@ -3101,6 +3281,7 @@ export default [...createReactConfig({ tsconfigRootDir: import.meta.dirname })];
 ```json
 { "exports": { ".": { "react-server": "./empty.js", "default": "./index.js" } } }
 ```
+````
 
 `index.js` is a bare top-level `throw`; `empty.js` is empty. In the RSC graph
 (where the `react-server` condition is set) the import vanishes; in the client
@@ -3164,7 +3345,7 @@ the other two packages. Config is **injected as a parameter**, never read from
 the ambient environment. The single sanctioned environment sniff is
 `src/runtime/guard.ts` (typeof-guarded, with a justified lint disable).
 
-Note: tsdown `platform: "neutral"` only *warns* on a Node-builtin import and
+Note: tsdown `platform: "neutral"` only _warns_ on a Node-builtin import and
 still exits 0 — it is a signal, not a gate. The gates are the lint zones and
 the dist tests.
 
@@ -3189,9 +3370,9 @@ Two plugins — `eslint-plugin-import-x` (the only import plugin declaring
 ESLint 10 support) and `eslint-import-resolver-typescript`. Everything else is
 ESLint core. Two layers, both kept (neither is a superset):
 
-- **`no-restricted-imports`** matches the *specifier string* — catches
+- **`no-restricted-imports`** matches the _specifier string_ — catches
   `@nukesai-pos/backend`, `server-only`, `node:fs` outright.
-- **`import-x/no-restricted-paths`** matches the *resolved file path* — catches
+- **`import-x/no-restricted-paths`** matches the _resolved file path_ — catches
   aliased and `.js`-suffixed TS imports that string matching misses. **The TS
   resolver is required**: with the default node resolver the zone rule silently
   passes (verified false-negative).
@@ -3221,8 +3402,10 @@ survived the build:
 A dropped directive or a tree-shaken poison pill is a silent,
 ships-to-production class of bug that only these tests catch — both failure
 modes were reproduced during research.
+
 ```
 
 ---
 
 *End of decision record. Implementation order is in the summary returned alongside this file.*
+```

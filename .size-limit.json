@@ -1,0 +1,37 @@
+[
+  {
+    "name": "common — full entry (ESM)",
+    "path": "packages/common/dist/index.js",
+    "limit": "8 kB",
+    "gzip": true
+  },
+  {
+    "name": "common — single export (tree-shaking proof)",
+    "path": "packages/common/dist/index.js",
+    "import": "{ formatMoney }",
+    "limit": "1.5 kB",
+    "gzip": true
+  },
+  {
+    "name": "frontend — client entry (ESM)",
+    "path": "packages/frontend/dist/client/index.js",
+    "limit": "45 kB",
+    "ignore": ["react", "react-dom", "next"],
+    "gzip": true
+  },
+  {
+    "name": "frontend — single component (tree-shaking proof)",
+    "path": "packages/frontend/dist/client/index.js",
+    "import": "{ OrderTicket }",
+    "limit": "6 kB",
+    "ignore": ["react", "react-dom", "next"],
+    "gzip": true
+  },
+  {
+    "name": "backend — server entry (must never reach a browser bundle)",
+    "path": "packages/backend/dist/index.js",
+    "limit": "60 kB",
+    "ignore": ["next", "server-only"],
+    "gzip": true
+  }
+]

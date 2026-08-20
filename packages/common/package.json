@@ -1,0 +1,84 @@
+{
+  "name": "@nukesai-pos/common",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Shared i18n, types, schemas, constants and runtime guards for the Nukes AI POS platform. Safe on both server and client.",
+  "keywords": [
+    "point-of-sale",
+    "pos",
+    "restaurant",
+    "nukesai"
+  ],
+  "bugs": {
+    "email": "info@nukesai.com"
+  },
+  "license": "UNLICENSED",
+  "author": {
+    "name": "Nukes AI & Software Solution",
+    "email": "info@nukesai.com"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/types/index.js"
+    },
+    "./constants": {
+      "types": "./dist/constants/index.d.ts",
+      "default": "./dist/constants/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas/index.d.ts",
+      "default": "./dist/schemas/index.js"
+    },
+    "./i18n": {
+      "types": "./dist/i18n/index.d.ts",
+      "default": "./dist/i18n/index.js"
+    },
+    "./i18n/locales/*": {
+      "types": "./dist/i18n/locales/*.d.ts",
+      "default": "./dist/i18n/locales/*.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "default": "./dist/runtime/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@arethetypeswrong/core": "catalog:",
+    "@nukesai-pos/eslint-config": "workspace:*",
+    "@nukesai-pos/typescript-config": "workspace:*",
+    "eslint": "catalog:",
+    "publint": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "provenance": false,
+    "registry": "https://registry.npmjs.org/",
+    "tag": "latest"
+  }
+}
