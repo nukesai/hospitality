@@ -51,6 +51,19 @@ describe("runUpgrade", () => {
     expect(await readManifest(cwd)).toMatchObject({ version: "0.1.0" });
   });
 
+  it("preserves ledger entries the plan does not own (the add-created extension)", async () => {
+    const cwd = await makeApp();
+    const { runAdd } = await import("./add.js");
+    await runAdd(
+      ["kds"],
+      { cwd, dryRun: false, force: true },
+      { kds: { name: "kds", routerExport: "kdsRouter" } },
+    );
+    await runUpgrade({ cwd, dryRun: false, version: "0.1.0" });
+    const manifest = await readManifest(cwd);
+    expect(manifest?.files).toContain("server/routers/_app.ts");
+  });
+
   it("dry-run plans without writing", async () => {
     const cwd = await makeApp();
     await writeFile(path.join(cwd, "instrumentation.ts"), stamp("// old template\n"));

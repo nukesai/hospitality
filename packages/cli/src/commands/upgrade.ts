@@ -39,7 +39,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     await writeManifest(options.cwd, {
       ...manifest,
       version: options.version,
-      files: files.map((file) => file.path),
+      // Preserve ledger entries the plan does not own (e.g. the `add`-created
+      // extension file) — dropping them would blind `doctor` to those files.
+      files: [...new Set([...files.map((file) => file.path), ...manifest.files])],
     });
   }
 
