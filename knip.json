@@ -11,7 +11,7 @@
         "app/**/{page,layout,route}.tsx",
         "app/**/route.ts",
         "server/**/*.ts",
-        "lib/**/*.ts"
+        "i18n/**/*.ts"
       ],
       "project": ["**/*.{ts,tsx}"]
     },

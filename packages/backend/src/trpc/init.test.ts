@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { resolveLocale } from "../i18n/resolve-locale.js";
 import { createTRPCContext, posErrorFormatter } from "./init.js";
 import type { PosErrorShape, PosTrpcContext, PosTrpcDeps } from "./init.js";
 
@@ -50,6 +51,12 @@ const createHarness = (raw: SessionShape | null): Harness => {
     isDev: false,
     trustedOrigins: [],
     defaultLocale: "en",
+    resolveLocale: (acceptLanguage: string | null): string =>
+      resolveLocale(
+        { defaultLocale: "en", messagesByLocale: { en: {}, ne: {} } },
+        undefined,
+        acceptLanguage,
+      ),
     translatorFor: (locale: string): Translator => {
       translatorCalls.push(locale);
       return translator;
@@ -91,7 +98,9 @@ describe("createTRPCContext", () => {
     expect(ctx.session).toEqual({ userId: "user-1", activeBranchId: "branch-1" });
     expect(ctx.requestedBranchId).toBe("branch-1");
     expect(ctx.ip).toBe("203.0.113.9");
-    expect(harness.translatorCalls).toEqual(["fr"]);
+    // fr is unsupported; proper negotiation walks the chain to the first
+    // SUPPORTED tag (en) instead of blindly taking the first tag.
+    expect(harness.translatorCalls).toEqual(["en"]);
     expect(harness.childBindings).toEqual([{ requestId: ctx.requestId, userId: "user-1" }]);
   });
 
@@ -102,7 +111,8 @@ describe("createTRPCContext", () => {
     });
     const ctx = await createTRPCContext(req, harness.deps);
     expect(ctx.session).toEqual({ userId: "user-2", activeBranchId: null });
-    expect(harness.translatorCalls).toEqual(["de"]);
+    // de is not in the catalog: negotiation falls back to the default locale.
+    expect(harness.translatorCalls).toEqual(["en"]);
   });
 });
 

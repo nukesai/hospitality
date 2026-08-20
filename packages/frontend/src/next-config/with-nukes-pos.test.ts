@@ -51,5 +51,10 @@ describe("withNukesPos", () => {
       "@nukesai-pos/frontend",
       "@nukesai-pos/common",
     ]);
+    const fresh = withNukesPos({}, { intl: false, optimizePackageImports: true });
+    expect(fresh.experimental?.optimizePackageImports).toEqual([
+      "@nukesai-pos/frontend",
+      "@nukesai-pos/common",
+    ]);
   });
 });

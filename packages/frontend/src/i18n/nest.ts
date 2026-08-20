@@ -53,7 +53,7 @@ export const nestPosMessages = (flat: Readonly<Record<string, string>>): NestedM
       }
       node = existing as Record<string, unknown>;
     }
-    const leaf = parts.at(-1) ?? key;
+    const leaf = String(parts.at(-1)); // split(".") never yields an empty array
     if (typeof node[leaf] === "object") {
       throw new Error(`Catalog key "${key}" is a leaf but already exists as a branch.`);
     }

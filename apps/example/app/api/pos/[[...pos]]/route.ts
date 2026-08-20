@@ -1,8 +1,8 @@
 // THE api route: every POS surface (auth/trpc/rest/openapi.json/docs) mounts
-// under POS_API_BASE_PATH — this file is the only consumer wiring needed.
+// under POS_API_BASE_PATH — this file is the only consumer API wiring needed.
+import { getPos } from "@nukesai-pos/backend/bootstrap";
 import { createPosApi } from "@nukesai-pos/backend/next";
 
-import { getPos } from "../../../../lib/pos.server";
 import { appRouter } from "../../../../server/routers/_app";
 
 const pos = await getPos();

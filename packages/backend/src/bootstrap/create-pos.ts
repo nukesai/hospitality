@@ -19,7 +19,11 @@ import { createNoopMail } from "../adapters/mail/noop.js";
 import { createAuth, type PosAuth } from "../auth/index.js";
 import { createCacheFromEnv } from "../cache/from-env.js";
 import { parseEnv, parseTrustedOrigins, type PosEnv, type PosEnvSource } from "../env.js";
-import { createRequestTranslator, defaultLocaleConfig } from "../i18n/resolve-locale.js";
+import {
+  createRequestTranslator,
+  defaultLocaleConfig,
+  resolveLocale,
+} from "../i18n/resolve-locale.js";
 import type { CachePort } from "../ports/cache.js";
 import type { KvPort } from "../ports/kv.js";
 import type { MailPort } from "../ports/mail.js";
@@ -121,6 +125,7 @@ export async function createNukesPos(options: CreateNukesPosOptions): Promise<Nu
     isDev: env.NODE_ENV === "development",
     trustedOrigins,
     defaultLocale: env.DEFAULT_LOCALE,
+    resolveLocale: (acceptLanguage) => resolveLocale(localeConfig, undefined, acceptLanguage),
     translatorFor: (locale) => createRequestTranslator(localeConfig, locale),
   };
 

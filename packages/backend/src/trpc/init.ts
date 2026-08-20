@@ -35,6 +35,9 @@ export interface PosTrpcDeps {
   readonly isDev: boolean;
   readonly trustedOrigins: readonly string[];
   readonly defaultLocale: string;
+  /** Proper Accept-Language negotiation (first SUPPORTED tag wins) — wired by
+   *  createNukesPos over the common catalogs; single source of truth. */
+  readonly resolveLocale: (acceptLanguage: string | null) => string;
   readonly translatorFor: (locale: string) => Translator;
 }
 
@@ -60,8 +63,7 @@ export async function createTRPCContext(req: Request, deps: PosTrpcDeps): Promis
     ? { userId: raw.user.id, activeBranchId: raw.session.activeOrganizationId ?? null }
     : null;
   const requestId = globalThis.crypto.randomUUID();
-  const locale =
-    req.headers.get("accept-language")?.split(",")[0]?.split("-")[0] ?? deps.defaultLocale;
+  const locale = deps.resolveLocale(req.headers.get("accept-language"));
   return {
     session,
     requestedBranchId: req.headers.get("x-branch-id"),

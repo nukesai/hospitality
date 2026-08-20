@@ -162,6 +162,34 @@ describe("createPosApi", () => {
     expect(index.surfaces).not.toHaveProperty("rest");
   });
 
+  it("keeps openApiJson opt-out honest when docs are also off, and hides them from the index", async () => {
+    const { pos } = makeSource();
+    const api = createPosApi(pos, router, {
+      surfaces: { rest: false, openApiJson: false, docs: false },
+    });
+    expect((await api.GET(get("/api/pos/openapi.json"))).status).toBe(404);
+    expect((await api.GET(get("/api/pos/docs"))).status).toBe(404);
+    const index = (await (await api.GET(get("/api/pos"))).json()) as {
+      surfaces: Record<string, string>;
+    };
+    expect(Object.keys(index.surfaces).sort()).toEqual(["auth", "trpc"]);
+  });
+
+  it("keeps the json document on when only openApiJson is disabled (docs default on)", async () => {
+    const { pos } = makeSource();
+    const api = createPosApi(pos, router, { surfaces: { openApiJson: false } });
+    expect((await api.GET(get("/api/pos/openapi.json"))).status).toBe(200);
+  });
+
+  it("forwards a custom Scalar cdn to the docs handler", async () => {
+    const { pos } = makeSource();
+    const api = createPosApi(pos, router, {
+      docs: { cdn: "https://cdn.example/scalar.js" },
+    });
+    const html = await (await api.GET(get("/api/pos/docs"))).text();
+    expect(html).toContain("https://cdn.example/scalar.js");
+  });
+
   it("everything follows a custom POS_API_BASE_PATH", async () => {
     const { pos, authCalls } = makeSource({ basePath: "/internal/pos" });
     const api = createPosApi(pos, router);

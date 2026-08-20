@@ -51,15 +51,33 @@ const program = new Command()
 
 program
   .command("init")
-  .description("Detect the host app, write nukes-pos.json, and scaffold routes and config.")
-  .action(async (_local: unknown, command: Command) => {
+  .description("Scaffold the full Nukes POS integration into the host Next.js app.")
+  .option("--i18n-routing", "locale-prefixed URLs: proxy.ts + app/[locale] tree", false)
+  .option("--features <names...>", "feature routers to scaffold", ["orders"])
+  .action(async (local: { i18nRouting: boolean; features: string[] }, command: Command) => {
     const options = globalOptions(command);
     if (!options.silent) intro(pc.bgCyan(pc.black(" nukes-pos init ")));
-    const report = await runInit({ ...options, version: CLI_VERSION });
+    const report = await runInit({
+      ...options,
+      version: CLI_VERSION,
+      i18nRouting: local.i18nRouting,
+      features: local.features,
+    });
     if (!options.silent) {
       for (const file of report.created) log.success(`created  ${file}`);
-      for (const file of report.skipped) log.info(`skipped  ${file} (already present)`);
-      outro(options.dryRun ? "Dry run — nothing was written." : "Nukes POS initialised.");
+      for (const file of report.updated) log.success(`updated  ${file}`);
+      for (const file of report.skipped) log.info(`skipped  ${file} (already current)`);
+      for (const file of report.conflicted)
+        log.warn(`conflict ${file} — hand-edited; wrote ${file}.new`);
+      if (report.dependenciesAdded.length > 0)
+        log.success(`deps     ${report.dependenciesAdded.join(", ")}`);
+      if (report.nextConfigPatched) log.success("patched  next.config (withNukesPos)");
+      if (report.envExampleTouched) log.success("updated  .env.example");
+      outro(
+        options.dryRun
+          ? "Dry run — nothing was written."
+          : "Nukes POS initialised. Install dependencies, fill .env, and start your app.",
+      );
     }
   });
 
@@ -78,6 +96,8 @@ program
     if (!options.silent) {
       for (const feature of report.added) log.success(`added    ${feature}`);
       for (const feature of report.alreadyPresent) log.info(`skipped  ${feature} (already added)`);
+      for (const file of report.conflicted)
+        log.warn(`conflict ${file} — hand-edited; wrote ${file}.new`);
     }
   });
 
@@ -98,16 +118,17 @@ program
 
 program
   .command("upgrade")
-  .description("Plan regeneration of scaffolded files for the installed version.")
+  .description("Regenerate scaffolded files for the installed version (pristine files only).")
   .action(async (_local: unknown, command: Command) => {
-    // Plan-only in the foundation release: never rewrite a consumer's repo.
-    const options = { ...globalOptions(command), dryRun: true };
-    const report = await runUpgrade(options);
+    const options = globalOptions(command);
+    const report = await runUpgrade({ ...options, version: CLI_VERSION });
     if (!options.silent) {
-      log.info(`Installed version: ${report.fromVersion}`);
-      for (const entry of report.plan) log.info(`${entry.action.padEnd(17)} ${entry.file}`);
+      log.info(`Scaffold ${report.fromVersion} -> ${report.toVersion}`);
+      for (const entry of report.plan) log.info(`${entry.action.padEnd(10)} ${entry.file}`);
       outro(
-        "Plan only — applying upgrades ships with the first feature release; nothing was written.",
+        options.dryRun
+          ? "Dry run — nothing was written."
+          : "Upgrade applied. Hand-edited files were preserved (see *.new siblings).",
       );
     }
   });

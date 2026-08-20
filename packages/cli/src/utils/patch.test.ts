@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { patchNextConfig, patchTsconfig } from "./patch.js";
+import { patchNextConfig } from "./patch.js";
 
 const makeDir = async (): Promise<string> => mkdtemp(path.join(tmpdir(), "nukes-cli-patch-"));
 
@@ -25,7 +25,7 @@ describe("patchNextConfig", () => {
     expect(await patchNextConfig(configPath, false)).toBe(true);
 
     const patched = await readFile(configPath, "utf8");
-    expect(patched).toContain('from "@nukesai-pos/backend/next"');
+    expect(patched).toContain('from "@nukesai-pos/frontend/next-config"');
     expect(patched).toContain("withNukesPos(");
     // Host options preserved.
     expect(patched).toContain("reactStrictMode: true");
@@ -47,14 +47,14 @@ describe("patchNextConfig", () => {
     const configPath = path.join(cwd, "next.config.mjs");
     await writeFile(
       configPath,
-      'import { withNukesPos } from "@nukesai-pos/backend/next";\n\nexport default {};\n',
+      'import { withNukesPos } from "@nukesai-pos/frontend/next-config";\n\nexport default {};\n',
     );
 
     expect(await patchNextConfig(configPath, false)).toBe(true);
     const patched = await readFile(configPath, "utf8");
     expect(patched).toContain("withNukesPos(");
     // The import must not be duplicated.
-    expect(patched.match(/@nukesai-pos\/backend\/next/g)).toHaveLength(1);
+    expect(patched.match(/@nukesai-pos\/frontend\/next-config/g)).toHaveLength(1);
   });
 
   it("repairs a half-patched config (export wrapped, import missing)", async () => {
@@ -64,7 +64,7 @@ describe("patchNextConfig", () => {
 
     expect(await patchNextConfig(configPath, false)).toBe(true);
     const patched = await readFile(configPath, "utf8");
-    expect(patched).toContain('from "@nukesai-pos/backend/next"');
+    expect(patched).toContain('from "@nukesai-pos/frontend/next-config"');
     // The wrapper must not be doubled.
     expect(patched.match(/withNukesPos\(/g)).toHaveLength(1);
   });
@@ -76,44 +76,5 @@ describe("patchNextConfig", () => {
 
     expect(await patchNextConfig(configPath, true)).toBe(true);
     expect(await readFile(configPath, "utf8")).toBe(FRESH_TS);
-  });
-});
-
-describe("patchTsconfig", () => {
-  it("adds the alias while preserving comments", async () => {
-    const cwd = await makeDir();
-    const tsconfigPath = path.join(cwd, "tsconfig.json");
-    await writeFile(
-      tsconfigPath,
-      `{
-  // keep me
-  "compilerOptions": { "strict": true }
-}
-`,
-    );
-
-    expect(await patchTsconfig(tsconfigPath, false)).toBe(true);
-    const patched = await readFile(tsconfigPath, "utf8");
-    expect(patched).toContain("// keep me");
-    expect(patched).toContain('"@nukesai-pos/config"');
-  });
-
-  it("no-ops when the alias already exists", async () => {
-    const cwd = await makeDir();
-    const tsconfigPath = path.join(cwd, "tsconfig.json");
-    await writeFile(
-      tsconfigPath,
-      '{ "compilerOptions": { "paths": { "@nukesai-pos/config": ["./nukes-pos.config.ts"] } } }',
-    );
-    expect(await patchTsconfig(tsconfigPath, false)).toBe(false);
-  });
-
-  it("dry-run leaves the file untouched", async () => {
-    const cwd = await makeDir();
-    const tsconfigPath = path.join(cwd, "tsconfig.json");
-    const original = "{}";
-    await writeFile(tsconfigPath, original);
-    expect(await patchTsconfig(tsconfigPath, true)).toBe(true);
-    expect(await readFile(tsconfigPath, "utf8")).toBe(original);
   });
 });

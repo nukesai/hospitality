@@ -16,6 +16,18 @@ function Probe(): React.ReactElement {
 }
 
 describe("PosIntl", () => {
+  it("zero-prop form requires the server inheritance (client render throws)", () => {
+    // In a plain client render there is no request config to inherit from —
+    // the example app's build+e2e cover the real react-server path.
+    expect(() => {
+      render(
+        <PosIntl>
+          <p>x</p>
+        </PosIntl>,
+      );
+    }).toThrow();
+  });
+
   it("provides messages to client hooks and keeps the POS key fallback", () => {
     // Explicit props here: the zero-prop path needs next-intl's react-server
     // build (exercised by the example app build + e2e).
