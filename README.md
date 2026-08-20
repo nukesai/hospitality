@@ -1,159 +1,68 @@
-# Turborepo starter
+# Nukes POS
 
-This Turborepo starter is maintained by the Turborepo core team.
+Package-based point-of-sale platform for restaurants, bars and hotels — built by
+**Nukes AI & Software Solution** (<info@nukesai.com>). Proprietary; see [LICENSE](./LICENSE).
 
-## Using this example
+This repository is a **package factory**, not an app. It publishes private,
+restricted npm packages under the `@nukesai-pos` scope that drop a full POS
+backend (API) and admin panel into **any existing Next.js 16 application**:
 
-Run the following command:
+| Package                                        | Runtime         | What it is                                           |
+| ---------------------------------------------- | --------------- | ---------------------------------------------------- |
+| [`@nukesai-pos/common`](./packages/common)     | isomorphic      | i18n, types, schemas, constants, runtime guards      |
+| [`@nukesai-pos/backend`](./packages/backend)   | **server-only** | business logic + data-access ports (`/api/**`)       |
+| [`@nukesai-pos/frontend`](./packages/frontend) | RSC + client    | admin panel UI                                       |
+| [`@nukesai-pos/cli`](./packages/cli)           | Node CLI        | `npx @nukesai-pos/cli init` scaffolds a consumer app |
 
-```sh
-npx create-turbo@latest
+Data model: **flat database with per-location (branch) isolation** — every port
+method takes a `LocationId` first. Explicitly _not_ multi-tenant SaaS.
+
+## Consumer quick start
+
+```bash
+cd your-nextjs-app
+npx @nukesai-pos/cli init     # detects app/, writes nukes-pos.json, .npmrc, route group
+npx @nukesai-pos/cli doctor   # verifies the installation
 ```
 
-## What's inside?
+## Development
 
-This Turborepo includes the following packages/apps:
+Requires Node ≥ 24.18 and pnpm 11.10 (`corepack enable`).
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+pnpm install
+pnpm build          # tsdown package builds + example next build (publint/attw inside)
+pnpm check-types    # TypeScript 7 (Go-native tsc)
+pnpm lint           # ESLint 10 flat config, type-aware, boundary zones
+pnpm test           # vitest — 100% coverage gate, root-only
+pnpm coverage:canary # proves the coverage gate can fail
+pnpm e2e            # playwright against the production example app (:3100)
+pnpm size           # per-export gzip budgets (tree-shaking gate)
+pnpm knip           # dead files/deps/exports
 ```
 
-Without global `turbo`, use your package manager:
+## Architecture
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+Read these before touching code:
+
+- [AGENTS.md](./AGENTS.md) — the rules of this repo (humans and AI agents)
+- [docs/architecture/isolation.md](./docs/architecture/isolation.md) — the SSR/CSR isolation contract
+- [.nukes/RESEARCH.md](./.nukes/RESEARCH.md) — the verified decision record behind every toolchain choice
+
+### The layering rule
+
+```
+common  ←  backend      (backend may import common)
+common  ←  frontend     (frontend may import common)
+NOTHING ELSE.
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+`frontend` never imports `backend` (data crosses only as serializable props /
+route handlers in the consumer app). `common` is a leaf. `cli` imports no
+workspace package at runtime.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## Releases
 
-```sh
-turbo build --filter=docs
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+Changesets with a **fixed version group** — all four published packages always
+share one version. `pnpm changeset` per user-visible change; the release
+workflow versions and publishes (`restricted` access) from `main`.

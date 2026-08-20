@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  # Provenance is structurally impossible for restricted packages
+  # (libnpmpublish throws unless access is public). Fail closed.
+  NPM_CONFIG_PROVENANCE: "false"
+
+jobs:
+  release:
+    name: Version or Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: release
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        # Deliberately NO registry-url here — we write $HOME/.npmrc ourselves so
+        # nothing can shadow it mid-publish.
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v6
+        with:
+          path: .turbo/cache
+          key: turbo-release-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-release-${{ runner.os }}-
+            turbo-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Single quotes are load-bearing: the literal string ${NPM_TOKEN} must land
+      # in the file. npm/pnpm expand it from the environment at read time, so the
+      # token is never written to disk.
+      - name: Configure npm registry auth
+        run: |
+          printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' > "$HOME/.npmrc"
+          printf '@nukesai-pos:registry=https://registry.npmjs.org/\n' >> "$HOME/.npmrc"
+
+      - name: Create release PR or publish to npm
+        id: changesets
+        # v2 is required for @changesets/cli 3.x; v1 inputs (version:/publish:)
+        # are silently ignored by v2 — these are the kebab-case v2 inputs.
+        uses: changesets/action@v2.1.1
+        with:
+          version-script: pnpm run version-packages
+          publish-script: pnpm run release
+          commit-message: "chore(release): version packages"
+          pr-title: "chore(release): version packages"
+          create-github-releases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "false"
+
+      - name: Summarise published packages
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          {
+            echo '### Published to npm (restricted)'
+            echo '```json'
+            echo '${{ steps.changesets.outputs.published-packages }}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
