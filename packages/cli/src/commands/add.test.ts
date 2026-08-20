@@ -12,7 +12,7 @@ const makeInitialised = async (): Promise<string> => {
   return cwd;
 };
 
-const OPTIONS = { dryRun: false };
+const OPTIONS = { dryRun: false, force: true };
 
 describe("runAdd", () => {
   it("requires an initialised app", async () => {
@@ -45,9 +45,16 @@ describe("runAdd", () => {
 
   it("dry-run computes the plan without persisting", async () => {
     const cwd = await makeInitialised();
-    const report = await runAdd(["kds"], { cwd, dryRun: true }, ["kds"]);
+    const report = await runAdd(["kds"], { cwd, dryRun: true, force: false }, ["kds"]);
     expect(report.added).toEqual(["kds"]);
     expect(await readManifest(cwd)).toMatchObject({ features: [] });
+  });
+
+  it("refuses a non-repo worktree when not forced", async () => {
+    const cwd = await makeInitialised();
+    await expect(runAdd(["reports"], { cwd, dryRun: false, force: false })).rejects.toThrow(
+      /Not a git repository/,
+    );
   });
 
   it("ships with an intentionally empty registry in the foundation release", () => {

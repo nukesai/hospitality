@@ -11,6 +11,8 @@
 import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 import importX from "eslint-plugin-import-x";
 
+import { BASE_SYNTAX_BANS } from "./base.js";
+
 const SERVER_PKGS = ["@nukesai-pos/backend", "@nukesai-pos/backend/**"];
 const DOM_GLOBALS = [
   "window",
@@ -69,7 +71,15 @@ export const serverZone = {
       {
         patterns: [
           {
-            group: ["client-only", "react-dom/client", "**/client/**", "*.client", "*.client.*"],
+            group: [
+              "client-only",
+              "react-dom/client",
+              // "**/client" additionally catches barrel-directory imports like "../client".
+              "**/client",
+              "**/client/**",
+              "*.client",
+              "*.client.*",
+            ],
             message: `server code must not import client code. ${DOC}`,
           },
         ],
@@ -78,6 +88,17 @@ export const serverZone = {
     "no-restricted-globals": [
       "error",
       ...DOM_GLOBALS.map((name) => ({ name, message: `server code has no DOM. ${DOC}` })),
+    ],
+    // no-restricted-imports does NOT see dynamic import(); ban the literal forms.
+    // BASE_SYNTAX_BANS is spread back in because flat config replaces rule
+    // options wholesale.
+    "no-restricted-syntax": [
+      "error",
+      ...BASE_SYNTAX_BANS,
+      {
+        selector: "ImportExpression > Literal[value=/client/]",
+        message: `server code must not dynamically import client modules. ${DOC}`,
+      },
     ],
   },
 };
@@ -96,10 +117,28 @@ export const clientZone = {
       {
         patterns: [
           {
-            group: [...SERVER_PKGS, "server-only", "**/server/**", "*.server", "*.server.*"],
+            group: [
+              ...SERVER_PKGS,
+              "server-only",
+              // "**/server" additionally catches barrel-directory imports like "../server".
+              "**/server",
+              "**/server/**",
+              "*.server",
+              "*.server.*",
+            ],
             message: `Client code must never import @nukesai-pos/backend or any server module. ${DOC}`,
           },
         ],
+      },
+    ],
+    // no-restricted-imports does NOT see dynamic import(); ban the literal forms.
+    "no-restricted-syntax": [
+      "error",
+      ...BASE_SYNTAX_BANS,
+      {
+        selector:
+          "ImportExpression > Literal[value=/@nukesai-pos\\u002Fbackend|server-only|\\u002Fserver/]",
+        message: `Client code must never dynamically import server modules. ${DOC}`,
       },
     ],
   },
@@ -150,6 +189,25 @@ export const isomorphicZone = {
 };
 
 /**
+ * Mixed packages: every source file MUST live in src/client/** or src/server/**.
+ * Without this, a file in e.g. src/shared/ would be completely unzoned.
+ */
+export const mixedStructureZone = {
+  name: "nukes/boundary/mixed-structure",
+  files: ["src/**/*.{ts,tsx}"],
+  ignores: ["src/client/**", "src/server/**"],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      {
+        selector: "Program",
+        message: `In a mixed package every source file must live in src/client/ or src/server/ (shared code belongs in @nukesai-pos/common). ${DOC}`,
+      },
+    ],
+  },
+};
+
+/**
  * @param {{ packageDir: string, zone: "server" | "client" | "isomorphic" | "mixed" }} opts
  * @returns {import("eslint").Linter.Config[]}
  */
@@ -164,7 +222,7 @@ export function boundaries({ packageDir, zone }) {
     case "isomorphic":
       return [...base, isomorphicZone];
     case "mixed":
-      return [...base, serverZone, clientZone];
+      return [...base, serverZone, clientZone, mixedStructureZone];
     default:
       throw new Error(`Unknown zone: ${String(zone)}`);
   }

@@ -12,7 +12,7 @@
     "check-types": "turbo run check-types",
     "coverage:canary": "node scripts/assert-coverage-gate-fails.mjs",
     "dev": "turbo run dev",
-    "e2e": "playwright test",
+    "e2e": "turbo run build --output-logs=errors-only && playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",

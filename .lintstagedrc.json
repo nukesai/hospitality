@@ -1,5 +1,4 @@
 {
   "*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}": ["prettier --write"],
-  "*.{json,jsonc,json5,md,mdx,yml,yaml,css,html}": ["prettier --write"],
-  "**/package.json": ["prettier --write"]
+  "*.{json,jsonc,json5,md,mdx,yml,yaml,css,html}": ["prettier --write"]
 }

@@ -17,7 +17,11 @@
     "name": "Nukes AI & Software Solution",
     "email": "info@nukesai.com"
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/_browser_guard.js",
+    "./dist/index.js",
+    "./dist/adapters/demo/index.js"
+  ],
   "type": "module",
   "exports": {
     ".": {
@@ -39,6 +43,8 @@
   "files": [
     "dist",
     "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

@@ -5,6 +5,19 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 /**
+ * Shared no-restricted-syntax selectors. ESLint flat config replaces rule
+ * options WHOLESALE (later config wins, no merging) — any config layer that
+ * redefines no-restricted-syntax must spread these back in.
+ */
+export const BASE_SYNTAX_BANS = [
+  {
+    selector: "TSEnumDeclaration",
+    message:
+      "Use a const object + union type. Enums are not erasable and break erasableSyntaxOnly/tsdown output.",
+  },
+];
+
+/**
  * Shared strict, type-aware base config. Exported as a FACTORY so each package
  * passes its own tsconfigRootDir — this is what makes projectService work
  * correctly per-package in a monorepo.
@@ -93,14 +106,7 @@ export function createBaseConfig({ tsconfigRootDir }) {
 
         // --- house style ---
         "no-console": ["error", { allow: ["warn", "error"] }],
-        "no-restricted-syntax": [
-          "error",
-          {
-            selector: "TSEnumDeclaration",
-            message:
-              "Use a const object + union type. Enums are not erasable and break erasableSyntaxOnly/tsdown output.",
-          },
-        ],
+        "no-restricted-syntax": ["error", ...BASE_SYNTAX_BANS],
       },
     },
 

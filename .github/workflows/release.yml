@@ -54,6 +54,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The release job must never publish what CI has not proven: rerun the
+      # blocking gates here (turbo cache makes this cheap on a green main).
+      - name: Quality gates (lint, typecheck, tests at 100% coverage)
+        run: |
+          pnpm turbo run lint check-types --output-logs=errors-only
+          pnpm test
+
       # Single quotes are load-bearing: the literal string ${NPM_TOKEN} must land
       # in the file. npm/pnpm expand it from the environment at read time, so the
       # token is never written to disk.

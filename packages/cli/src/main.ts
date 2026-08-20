@@ -98,15 +98,17 @@ program
 
 program
   .command("upgrade")
-  .description("Regenerate scaffolded files for the installed version, preserving your edits.")
+  .description("Plan regeneration of scaffolded files for the installed version.")
   .action(async (_local: unknown, command: Command) => {
-    // Upgrade defaults to dry-run: never rewrite a consumer's repo unprompted.
+    // Plan-only in the foundation release: never rewrite a consumer's repo.
     const options = { ...globalOptions(command), dryRun: true };
     const report = await runUpgrade(options);
     if (!options.silent) {
       log.info(`Installed version: ${report.fromVersion}`);
       for (const entry of report.plan) log.info(`${entry.action.padEnd(17)} ${entry.file}`);
-      outro("Dry run — re-run with --force after reviewing the plan.");
+      outro(
+        "Plan only — applying upgrades ships with the first feature release; nothing was written.",
+      );
     }
   });
 

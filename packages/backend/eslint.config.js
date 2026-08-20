@@ -8,6 +8,9 @@ export default [
     name: "backend/no-ui",
     files: ["src/**/*.ts"],
     rules: {
+      // NOTE: flat config replaces rule options WHOLESALE — this block must
+      // restate the serverZone patterns from
+      // @nukesai-pos/eslint-config/boundaries, or it would silently wipe them.
       "no-restricted-imports": [
         "error",
         {
@@ -24,6 +27,19 @@ export default [
                 "react-dom/*",
               ],
               message: "@nukesai-pos/backend never imports UI code.",
+            },
+            {
+              // Restated from boundaries.js serverZone (wholesale-replacement rule).
+              group: [
+                "client-only",
+                "react-dom/client",
+                "**/client",
+                "**/client/**",
+                "*.client",
+                "*.client.*",
+              ],
+              message:
+                "server code must not import client code. See docs/architecture/isolation.md.",
             },
           ],
         },

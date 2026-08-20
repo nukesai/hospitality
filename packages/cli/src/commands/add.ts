@@ -1,8 +1,10 @@
+import { assertCleanWorktree } from "../utils/git.js";
 import { readManifest, writeManifest, type Manifest } from "../utils/manifest.js";
 
 export interface AddOptions {
   readonly cwd: string;
   readonly dryRun: boolean;
+  readonly force: boolean;
 }
 
 export interface AddReport {
@@ -24,6 +26,9 @@ export async function runAdd(
   options: AddOptions,
   registry: readonly string[] = KNOWN_FEATURES,
 ): Promise<AddReport> {
+  // Same contract as init: never write into a dirty customer worktree.
+  assertCleanWorktree(options.cwd, options.force || options.dryRun);
+
   const manifest = await readManifest(options.cwd);
   if (manifest === null) {
     throw new Error("No nukes-pos.json found. Run `nukes-pos init` first.");

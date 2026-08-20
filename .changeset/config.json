@@ -11,11 +11,15 @@
   ],
   "linked": [],
   "ignore": [],
-  "privatePackages": { "version": false, "tag": false },
+  "privatePackages": {
+    "version": false,
+    "tag": false
+  },
   "changedFilePatterns": [
     "src/**",
     "package.json",
     "tsdown.config.ts",
+    "styles.css",
     "!**/*.test.ts",
     "!**/*.test.tsx",
     "!**/*.md"

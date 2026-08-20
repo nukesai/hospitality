@@ -31,7 +31,8 @@ NOTHING ELSE
   serializable props / route handlers in the consumer app.
 - `common` is a leaf: no Node builtins, no DOM globals, no `process.env` —
   config is injected as parameters.
-- `cli` imports no workspace package at runtime; its templates reference them.
+- `cli` imports no workspace package at runtime; the files it scaffolds
+  reference them.
 
 ### SSR/CSR isolation (docs/architecture/isolation.md is normative)
 

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
-const STAMP = /^\/\/ @nukesai-pos\/cli generated — do not edit\. hash: ([a-f0-9]{64})\n/;
+// \r?\n so a CRLF (autocrlf) checkout still reads as stamped; hashBody normalizes too.
+const STAMP = /^\/\/ @nukesai-pos\/cli generated — do not edit\. hash: ([a-f0-9]{64})\r?\n/;
 
 /** Hash is computed over the body EXCLUDING the stamp line, LF-normalized. */
 export function hashBody(body: string): string {
