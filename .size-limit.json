@@ -22,7 +22,18 @@
     "name": "frontend \u2014 client entry (ESM)",
     "path": "packages/frontend/dist/client/index.js",
     "limit": "45 kB",
-    "ignore": ["react", "react-dom", "next"],
+    "ignore": [
+      "react",
+      "react-dom",
+      "next",
+      "i18next",
+      "react-i18next",
+      "better-auth",
+      "@tanstack/react-query",
+      "@trpc/client",
+      "@trpc/server",
+      "superjson"
+    ],
     "gzip": true
   },
   {
@@ -30,7 +41,18 @@
     "path": "packages/frontend/dist/client/index.js",
     "import": "{ OrderTicket }",
     "limit": "6 kB",
-    "ignore": ["react", "react-dom", "next"],
+    "ignore": [
+      "react",
+      "react-dom",
+      "next",
+      "i18next",
+      "react-i18next",
+      "better-auth",
+      "@tanstack/react-query",
+      "@trpc/client",
+      "@trpc/server",
+      "superjson"
+    ],
     "gzip": true
   },
   {
@@ -39,5 +61,48 @@
     "limit": "60 kB",
     "ignore": ["next", "server-only"],
     "gzip": true
+  },
+  {
+    "name": "backend \u2014 trpc surface (server-only)",
+    "path": "packages/backend/dist/trpc/index.js",
+    "limit": "80 kB",
+    "ignore": ["next", "server-only", "pg", "pino", "better-auth", "drizzle-orm", "nodemailer"],
+    "gzip": true
+  },
+  {
+    "name": "frontend \u2014 i18n subpath (consumer pays only when used)",
+    "path": "packages/frontend/dist/i18n/index.js",
+    "limit": "16 kB",
+    "ignore": [
+      "react",
+      "react-dom",
+      "next",
+      "i18next",
+      "react-i18next",
+      "better-auth",
+      "@tanstack/react-query",
+      "@trpc/client",
+      "@trpc/server",
+      "superjson"
+    ],
+    "gzip": true
+  },
+  {
+    "name": "frontend \u2014 single locale (tree-shaking proof)",
+    "path": "packages/frontend/dist/locales/ne.js",
+    "limit": "2 kB",
+    "gzip": true,
+    "ignore": [
+      "react",
+      "react-dom",
+      "next",
+      "i18next",
+      "react-i18next",
+      "better-auth",
+      "@tanstack/react-query",
+      "@trpc/client",
+      "@trpc/server",
+      "superjson"
+    ]
   }
 ]

@@ -128,11 +128,24 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium webkit
 
+      - name: Start the Docker stack (postgres + redis + mailpit)
+        run: |
+          cp .env.example .env
+          docker compose -f docker/compose.yaml --env-file .env up -d --wait
+
+      - name: Apply migrations and seed
+        run: pnpm db:migrate && pnpm db:seed
+
       - name: Build workspace
         run: pnpm turbo run build
 
-      - name: Run E2E tests
+      - name: Run integration suite (live RLS/Redis contracts)
+        run: pnpm test:integration
+
+      - name: Run E2E tests (full API flow + i18n against the stack)
         run: pnpm e2e
+        env:
+          E2E_STACK: "1"
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}

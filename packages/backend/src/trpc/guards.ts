@@ -57,7 +57,11 @@ export async function requireBranch(
       context: { requestId: ctx.requestId, userId: session.userId, branchId },
     });
   }
-  const member = await ctx.deps.auth.api.getActiveMember({ headers: ctx.requestHeaders });
+  // better-auth types getActiveMember as non-null, but it RETURNS null when the
+  // caller is not a member (runtime-verified) — widen before checking.
+  const member = (await ctx.deps.auth.api.getActiveMember({
+    headers: ctx.requestHeaders,
+  })) as { role: string } | null;
   if (member === null || !isPosRole(member.role)) {
     throw new AppError("BRANCH_ACCESS_DENIED", {
       internalMessage: "Caller is not a member of the active branch",

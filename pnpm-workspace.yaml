@@ -15,7 +15,6 @@ catalog:
   "@tanstack/react-query": 5.101.4
   "@trpc/client": 11.18.0
   "@trpc/server": 11.18.0
-  "@trpc/tanstack-react-query": 11.18.0
   "@types/nodemailer": 8.0.1
   "@types/pg": 8.23.1
   "@upstash/redis": 1.38.2

@@ -165,6 +165,7 @@ describe("createUpstashCacheStore", () => {
     const fake = lastInstance();
     fake.sscanPages = [
       [7, ["k1", 42]],
+      ["3", ["k2"]],
       [0, []],
     ];
     await store.invalidateTags(["t1"]);
@@ -172,6 +173,8 @@ describe("createUpstashCacheStore", () => {
       ["sscan", "pos:tagset:{t1}", "0", { count: 500 }],
       ["unlink", "k1", "42"],
       ["sscan", "pos:tagset:{t1}", "7", { count: 500 }],
+      ["unlink", "k2"],
+      ["sscan", "pos:tagset:{t1}", "3", { count: 500 }],
       ["unlink", "pos:tagset:{t1}"],
     ]);
   });

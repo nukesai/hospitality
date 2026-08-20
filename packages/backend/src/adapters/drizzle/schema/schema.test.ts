@@ -53,7 +53,9 @@ describe("orders schema", () => {
       "orders_update",
     ]);
     expect(policies.orders_delete?.for).toBe("delete");
-    const deleteSql = sqlText(policies.orders_delete?.using!);
+    const using = policies.orders_delete?.using;
+    if (using === undefined) throw new Error("orders_delete policy missing using");
+    const deleteSql = sqlText(using);
     expect(deleteSql).toContain("in ('owner', 'admin')");
   });
 

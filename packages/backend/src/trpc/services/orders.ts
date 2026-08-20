@@ -91,12 +91,12 @@ export async function listOrders(
         if (input.status !== undefined) conditions.push(eq(orders.status, input.status));
         if (input.cursor !== undefined) {
           const cursorDate = new Date(input.cursor.createdAt);
-          conditions.push(
-            or(
-              lt(orders.createdAt, cursorDate),
-              and(eq(orders.createdAt, cursorDate), lt(orders.id, input.cursor.id)),
-            )!,
+          const cursorCondition = or(
+            lt(orders.createdAt, cursorDate),
+            and(eq(orders.createdAt, cursorDate), lt(orders.id, input.cursor.id)),
           );
+          /* v8 ignore next -- or() only returns undefined for zero args; kept as a type guard */
+          if (cursorCondition !== undefined) conditions.push(cursorCondition);
         }
         const rows = await tx
           .select()

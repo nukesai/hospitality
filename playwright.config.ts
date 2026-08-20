@@ -41,6 +41,13 @@ export default defineConfig({
     stdout: "ignore",
     stderr: "pipe",
     // Dedicated port so it never collides with a developer's `next dev` on 3000.
-    env: { PORT: String(PORT), NODE_ENV: "production" },
+    // Auth URLs must match the server the tests hit — magic links and origin
+    // checks break otherwise (found live).
+    env: {
+      PORT: String(PORT),
+      NODE_ENV: "production",
+      BETTER_AUTH_URL: BASE_URL,
+      AUTH_TRUSTED_ORIGINS: BASE_URL,
+    },
   },
 });

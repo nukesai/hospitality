@@ -53,7 +53,9 @@ export const createUpstashCacheStore = (options: UpstashCacheOptions): CacheStor
         const setKey = tagSetKey(tag);
         let cursor = "0";
         do {
-          const [next, members] = await client.sscan(setKey, cursor, { count: SSCAN_BATCH });
+          const [next, members] = (await client.sscan(setKey, cursor, {
+            count: SSCAN_BATCH,
+          })) as [string | number, (string | number)[]];
           cursor = typeof next === "number" ? next.toString() : next;
           if (members.length > 0)
             await client.unlink(...members.map((m) => (typeof m === "number" ? m.toString() : m)));

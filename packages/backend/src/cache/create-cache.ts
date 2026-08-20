@@ -42,9 +42,9 @@ export const createCache = (store: CacheStore, deps: CreateCacheDeps = {}): Cach
     }
   };
 
-  const write = async <T>(key: string, value: T, options: CacheEntryOptions): Promise<void> => {
+  const write = async (key: string, value: unknown, options: CacheEntryOptions): Promise<void> => {
     const stale = options.staleTtlSeconds ?? 0;
-    const envelope: CacheEnvelope<T> = { v: value, sea: clock() + options.ttlSeconds * 1000 };
+    const envelope: CacheEnvelope<unknown> = { v: value, sea: clock() + options.ttlSeconds * 1000 };
     try {
       await store.set(
         key,

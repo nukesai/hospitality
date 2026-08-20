@@ -61,7 +61,7 @@ export interface CacheMetrics {
 /** High-level port consumed by routers/services. */
 export interface CachePort {
   readonly get: <T>(key: string) => Promise<T | undefined>;
-  readonly set: <T>(key: string, value: T, options: CacheEntryOptions) => Promise<void>;
+  readonly set: (key: string, value: unknown, options: CacheEntryOptions) => Promise<void>;
   readonly del: (keys: readonly string[]) => Promise<void>;
   readonly invalidateTags: (tags: readonly string[]) => Promise<void>;
   /**

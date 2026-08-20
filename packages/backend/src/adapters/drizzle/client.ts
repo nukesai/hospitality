@@ -57,7 +57,8 @@ export function createPosDb(
   schemaModule: PosSchema,
   poolFactory: PoolFactory = (o) => new Pool(o),
 ): PosDb {
-  const store: DbGlobal = (globalStore[GLOBAL_KEY] ??= {});
+  const store: DbGlobal = globalStore[GLOBAL_KEY] ?? {};
+  globalStore[GLOBAL_KEY] = store;
   if (store.instance !== undefined) return store.instance;
 
   const pool = poolFactory({
@@ -75,7 +76,10 @@ export function createPosDb(
 
   const db: PosDatabase = drizzle({ client: pool, schema: schemaModule });
 
-  const close = async (): Promise<void> => {
+  // NOT async on purpose: callers rely on close() returning the SAME memoized
+  // promise (identity — idempotency contract); async would wrap it per call.
+  // eslint-disable-next-line @typescript-eslint/promise-function-async
+  const close = (): Promise<void> => {
     store.closing ??= pool.end().finally(() => {
       delete store.instance;
       delete store.closing;

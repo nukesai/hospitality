@@ -43,7 +43,8 @@ const wrap = (instance: PinoLogger): LoggerPort => ({
   flush: async (): Promise<void> =>
     new Promise<void>((resolve, reject) => {
       instance.flush((err?: Error) => {
-        err ? reject(err) : resolve();
+        if (err) reject(err);
+        else resolve();
       });
     }),
 });

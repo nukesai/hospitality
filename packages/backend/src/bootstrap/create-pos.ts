@@ -114,7 +114,10 @@ export async function createNukesPos(options: CreateNukesPosOptions): Promise<Nu
   };
 
   let closing: Promise<void> | undefined;
-  const shutdown = async (): Promise<void> => {
+  // NOT async on purpose: shutdown() must return the SAME memoized promise
+  // (identity idempotency contract); async would wrap it per call.
+  // eslint-disable-next-line @typescript-eslint/promise-function-async
+  const shutdown = (): Promise<void> => {
     closing ??= (async () => {
       await mail.close();
       await cache.close();

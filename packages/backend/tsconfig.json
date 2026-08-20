@@ -1,7 +1,9 @@
 {
   "extends": "@nukesai-pos/typescript-config/library.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true
   },
   "include": [
     "src/**/*.ts",
@@ -10,7 +12,8 @@
     "vitest.config.ts",
     "vitest.setup.ts",
     "drizzle.config.ts",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "test-integration/**/*.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }

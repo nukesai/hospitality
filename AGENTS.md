@@ -126,7 +126,28 @@ ships.
   in `packages/typescript-config` must not carry `include`.
 - The example app's `<h1>Nukes POS</h1>` is a contract with `e2e/smoke.spec.ts`.
 
-## 7. Where to look
+## 7. Backend-system rules (phase 2 — binding)
+
+- Decision record: `.nukes/RESEARCH-BACKEND.md` (contradiction resolutions R1–R16 are binding).
+- **Consumer owns the tRPC root**: backend ships context types, guard functions,
+  services and handler factories; `t`, procedures and routers live in the app
+  scaffold (apps/example/server/). Never export a built router from backend.
+- **RLS**: every branch table gets the four `branchGuard()` policies + branch-leading
+  index; `withBranchContext` is the only sanctioned context entry; migrations/seeds
+  run as `pos_owner`, runtime as `pos_app` (never BYPASSRLS, never FORCE RLS).
+  Repository queries ALSO filter `branchId` explicitly (defense in depth).
+- **Cache discipline**: every mutation declares `meta.cacheInvalidates` (or "none");
+  the invalidate middleware must sit AFTER branchGuard (ctx order bug caught live).
+  Reads fail open, invalidation fails closed. Keys/tags are branch-scoped.
+- **Env**: only `src/env.ts` interprets env; the package never reads process.env
+  (`scripts/**` excepted). Consumers call `createNukesPos({ env: process.env })`.
+- **i18n**: catalogs live ONCE in `@nukesai-pos/common` (single-brace `{name}`);
+  frontend derives i18next resources from them; i18next never enters common/backend.
+- **Stack**: `pnpm stack:up && pnpm db:migrate && pnpm db:seed`; integration suite
+  `pnpm test:integration` (live RLS contracts, opt-in); full E2E `E2E_STACK=1 pnpm e2e`.
+- zod-openapi stays PINNED at 5.4.6 (6.x breaks trpc-to-openapi peers).
+
+## 8. Where to look
 
 | Question                        | Answer                                                    |
 | ------------------------------- | --------------------------------------------------------- |
