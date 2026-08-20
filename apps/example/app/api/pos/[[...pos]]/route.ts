@@ -11,5 +11,5 @@ export const { GET, POST, PUT, PATCH, DELETE } = createPosApi(pos, appRouter, {
   docs: { title: "Nukes AI POS API" },
 });
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+// No `dynamic`/`runtime` segment exports: route handlers are dynamic on the
+// Node runtime by default, and `dynamic` is REMOVED under cacheComponents.

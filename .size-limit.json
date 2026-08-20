@@ -26,13 +26,13 @@
       "react",
       "react-dom",
       "next",
-      "i18next",
-      "react-i18next",
       "better-auth",
       "@tanstack/react-query",
       "@trpc/client",
       "@trpc/server",
-      "superjson"
+      "superjson",
+      "next-intl",
+      "use-intl"
     ],
     "gzip": true
   },
@@ -45,13 +45,13 @@
       "react",
       "react-dom",
       "next",
-      "i18next",
-      "react-i18next",
       "better-auth",
       "@tanstack/react-query",
       "@trpc/client",
       "@trpc/server",
-      "superjson"
+      "superjson",
+      "next-intl",
+      "use-intl"
     ],
     "gzip": true
   },
@@ -77,13 +77,13 @@
       "react",
       "react-dom",
       "next",
-      "i18next",
-      "react-i18next",
       "better-auth",
       "@tanstack/react-query",
       "@trpc/client",
       "@trpc/server",
-      "superjson"
+      "superjson",
+      "next-intl",
+      "use-intl"
     ],
     "gzip": true
   },
@@ -96,13 +96,56 @@
       "react",
       "react-dom",
       "next",
-      "i18next",
-      "react-i18next",
+      "better-auth",
+      "@tanstack/react-query",
+      "@trpc/client",
+      "@trpc/server",
+      "superjson",
+      "next-intl",
+      "use-intl"
+    ]
+  },
+  {
+    "name": "frontend \u2014 next-config subpath (build-time only)",
+    "path": "packages/frontend/dist/next-config/index.js",
+    "limit": "3 kB",
+    "ignore": [
+      "react",
+      "react-dom",
+      "next",
+      "next-intl",
+      "use-intl",
       "better-auth",
       "@tanstack/react-query",
       "@trpc/client",
       "@trpc/server",
       "superjson"
-    ]
+    ],
+    "gzip": true
+  },
+  {
+    "name": "frontend \u2014 proxy subpath (server-side only)",
+    "path": "packages/frontend/dist/proxy/index.js",
+    "limit": "3 kB",
+    "ignore": [
+      "react",
+      "react-dom",
+      "next",
+      "next-intl",
+      "use-intl",
+      "better-auth",
+      "@tanstack/react-query",
+      "@trpc/client",
+      "@trpc/server",
+      "superjson"
+    ],
+    "gzip": true
+  },
+  {
+    "name": "backend \u2014 next surface (single-mount dispatcher)",
+    "path": "packages/backend/dist/next/index.js",
+    "limit": "40 kB",
+    "ignore": ["next", "server-only", "pg", "pino", "better-auth", "drizzle-orm", "nodemailer"],
+    "gzip": true
   }
 ]

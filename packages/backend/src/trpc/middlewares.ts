@@ -25,10 +25,7 @@ import type { PosTrpcContext, PosTrpcMeta } from "./init.js";
 export type PosMiddlewareResult =
   { readonly ok: true } | { readonly ok: false; readonly error: TRPCError };
 
-export interface PosMiddlewareNext<R> {
-  (): Promise<R>;
-  <C extends object>(opts: { readonly ctx: C }): Promise<R>;
-}
+export type PosMiddlewareNext<R> = (opts?: { readonly ctx: object }) => Promise<R>;
 
 export interface PosMiddlewareOpts<R> {
   readonly ctx: PosTrpcContext;

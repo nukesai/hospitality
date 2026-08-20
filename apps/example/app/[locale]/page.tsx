@@ -1,15 +1,15 @@
 import { DEMO_LOCATION_ID, toLocationId } from "@nukesai-pos/common";
 import type { CurrencyCode, Order } from "@nukesai-pos/common/types";
 import { createDemoOrderRepository } from "@nukesai-pos/backend/adapters/demo";
-import { OrderTicket, PosI18nProvider } from "@nukesai-pos/frontend/client";
-import { en } from "@nukesai-pos/frontend/locales/en";
+import { OrderTicket } from "@nukesai-pos/frontend/client";
 import { OrderSummary } from "@nukesai-pos/frontend/server";
+import { getTranslations } from "next-intl/server";
 import type { ReactElement } from "react";
 
 const seed: Order = {
   id: "order-1",
   locationId: toLocationId("demo-main"),
-  status: "pending",
+  status: "ready",
   lines: [
     { productId: "p1", name: "Momo", quantity: 2, unitPriceMinor: 450 },
     { productId: "p2", name: "Chiya", quantity: 1, unitPriceMinor: 150 },
@@ -21,24 +21,30 @@ const seed: Order = {
 /**
  * Exercises all three packages across the server/client boundary exactly the
  * way a customer app would: backend adapter in the RSC graph, RSC component
- * from frontend/server, interactive leaf from frontend/client receiving only
- * serializable props. The h1 text is the contract with e2e/smoke.spec.ts.
+ * from frontend/server, interactive leaf from frontend/client — all localized
+ * through ONE next-intl request config. The h1 text is the e2e smoke contract;
+ * data-testid="server-translated" is the i18n e2e contract.
  */
-export default async function HomePage(): Promise<ReactElement> {
+export default async function HomePage({
+  params,
+}: {
+  readonly params: Promise<{ readonly locale: string }>;
+}): Promise<ReactElement> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "pos" });
   const repository = createDemoOrderRepository([seed]);
   const order = await repository.findById(DEMO_LOCATION_ID, "order-1");
 
   return (
     <main>
       <h1>Nukes POS</h1>
+      <p data-testid="server-translated">{t("order.status.ready")}</p>
       {order === null ? (
         <p>No demo order found.</p>
       ) : (
         <>
           <OrderSummary order={order} />
-          <PosI18nProvider lng="en" resources={{ en }}>
-            <OrderTicket order={order} />
-          </PosI18nProvider>
+          <OrderTicket order={order} />
         </>
       )}
     </main>

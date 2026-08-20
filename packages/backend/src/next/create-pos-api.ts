@@ -147,10 +147,9 @@ export function createPosApi(
         return method === "GET" ? index() : METHOD_NOT_ALLOWED("GET");
       }
       if (sub === "/auth" || sub.startsWith("/auth/")) {
-        // better-auth accepts GET/POST only; reject the rest at the mount.
-        return method === "GET" || method === "POST"
-          ? pos.auth.handler(req)
-          : METHOD_NOT_ALLOWED("GET, POST");
+        // Every method passes through — better-auth's own Next wrapper maps
+        // GET/POST/PUT/PATCH/DELETE to auth.handler (verified in 1.7.1 dist).
+        return pos.auth.handler(req);
       }
       if (sub === "/trpc" || sub.startsWith("/trpc/")) {
         return method === "GET" || method === "POST"

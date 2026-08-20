@@ -1,7 +1,7 @@
 import { noopLogger } from "@nukesai-pos/common";
 import { TRPCError } from "@trpc/server";
 import { describe, expect, it, vi } from "vitest";
-import { z, ZodError } from "zod";
+import { z, type ZodError } from "zod";
 
 import type { CachePort } from "../ports/cache.js";
 import type { KvPort } from "../ports/kv.js";

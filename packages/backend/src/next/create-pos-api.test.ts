@@ -86,7 +86,7 @@ describe("createPosApi", () => {
     expect(put.headers.get("allow")).toBe("GET");
   });
 
-  it("routes auth traffic (GET and POST) to the better-auth handler untouched", async () => {
+  it("routes every method's auth traffic to the better-auth handler untouched", async () => {
     const { pos, authCalls } = makeSource();
     const api = createPosApi(pos, router);
     expect((await api.GET(get("/api/pos/auth/session"))).status).toBe(200);
@@ -95,7 +95,8 @@ describe("createPosApi", () => {
     expect(authCalls).toHaveLength(2);
     expect(
       (await api.DELETE(new Request(`${ORIGIN}/api/pos/auth/x`, { method: "DELETE" }))).status,
-    ).toBe(405);
+    ).toBe(200);
+    expect(authCalls).toHaveLength(3);
   });
 
   it("serves tRPC under {base}/trpc and 405s non-GET/POST", async () => {
@@ -198,5 +199,8 @@ describe("createPosApi", () => {
     // better-auth does its own origin checking — the mount must not preempt it.
     expect((await api.POST(new Request(`${ORIGIN}/api/pos/auth/x`, evil))).status).toBe(200);
     expect(authCalls).toHaveLength(1);
+    expect((await api.PUT(new Request(`${ORIGIN}/api/pos/auth/x`, { method: "PUT" }))).status).toBe(
+      200,
+    );
   });
 });

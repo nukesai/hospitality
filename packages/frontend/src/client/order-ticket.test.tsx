@@ -5,14 +5,14 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { en } from "../locales/en.js";
-import { PosI18nProvider } from "./i18n.js";
+import { PosIntlProvider } from "../i18n/provider.js";
 import { OrderTicket } from "./order-ticket.js";
 
 const renderTicket = (ui: Parameters<typeof render>[0]): ReturnType<typeof render> =>
   render(
-    <PosI18nProvider lng="en" resources={{ en }}>
+    <PosIntlProvider locale="en" messages={en}>
       {ui}
-    </PosI18nProvider>,
+    </PosIntlProvider>,
   );
 
 const order: Order = {

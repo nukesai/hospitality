@@ -204,12 +204,46 @@ export const isomorphicZone = {
  * Mixed packages: every source file MUST live in src/client/** or src/server/**.
  * Without this, a file in e.g. src/shared/ would be completely unzoned.
  */
+/** AGENTS.md §7: no i18n FRAMEWORK ever enters common or backend — catalogs are
+ * plain data and the dependency-free common translator serves the server side. */
+export const i18nFrameworkBan = {
+  name: "nukes/boundary/i18n-framework-ban",
+  files: ["src/**/*.{ts,tsx}"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        paths: ["i18next", "react-i18next", "next-intl", "use-intl"].map((name) => ({
+          name,
+          message: `i18n frameworks live in @nukesai-pos/frontend only; common/backend use the dependency-free translator. ${DOC}`,
+        })),
+        patterns: [
+          {
+            group: ["i18next/*", "react-i18next/*", "next-intl/*", "use-intl/*"],
+            message: `i18n frameworks live in @nukesai-pos/frontend only. ${DOC}`,
+          },
+        ],
+      },
+    ],
+  },
+};
+
 export const mixedStructureZone = {
   name: "nukes/boundary/mixed-structure",
   files: ["src/**/*.{ts,tsx}"],
   // i18n/ and locales/ are the documented NEUTRAL subpaths (no runtime pin,
-  // importable from both graphs); everything else must pick a side.
-  ignores: ["src/client/**", "src/server/**", "src/i18n/**", "src/locales/**"],
+  // importable from both graphs); next-config/ and proxy/ are NODE-side config
+  // surfaces loaded by next.config.ts / proxy.ts, which run WITHOUT the
+  // react-server condition, so they must never carry the server-only pill.
+  // Everything else must pick a side.
+  ignores: [
+    "src/client/**",
+    "src/server/**",
+    "src/i18n/**",
+    "src/locales/**",
+    "src/next-config/**",
+    "src/proxy/**",
+  ],
   rules: {
     "no-restricted-syntax": [
       "error",
@@ -230,11 +264,11 @@ export function boundaries({ packageDir, zone }) {
   switch (zone) {
     case "server":
       // Whole package is server code, not just src/server/**.
-      return [...base, { ...serverZone, files: ["src/**/*.{ts,tsx}"] }];
+      return [...base, { ...serverZone, files: ["src/**/*.{ts,tsx}"] }, i18nFrameworkBan];
     case "client":
       return [...base, { ...clientZone, files: ["src/**/*.{ts,tsx}"] }];
     case "isomorphic":
-      return [...base, isomorphicZone];
+      return [...base, isomorphicZone, i18nFrameworkBan];
     case "mixed":
       return [...base, serverZone, clientZone, mixedStructureZone];
     default:

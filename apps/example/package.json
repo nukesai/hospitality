@@ -19,11 +19,10 @@
     "@trpc/server": "catalog:",
     "@vercel/functions": "catalog:",
     "better-auth": "catalog:",
-    "i18next": "catalog:",
     "next": "catalog:",
+    "next-intl": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-i18next": "catalog:",
     "server-only": "catalog:",
     "superjson": "catalog:",
     "zod": "catalog:"
