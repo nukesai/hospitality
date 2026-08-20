@@ -15,10 +15,22 @@ export interface ApiHandlerConfig {
   readonly maxBodyBytes: number; // createOpenApiFetchHandler has NO maxBodySize (verified)
   readonly onError: (info: { path: string | undefined; code: string; message: string }) => void;
   readonly restBaseUrl: string;
-  readonly docs?: { readonly cdn?: string; readonly title?: string } | undefined;
+  /** Mount path of the tRPC handler; default keeps the classic split-route layout. */
+  readonly trpcEndpoint?: `/${string}` | undefined;
+  /** Mount path of the REST (trpc-to-openapi) handler. */
+  readonly restEndpoint?: `/${string}` | undefined;
+  readonly docs?:
+    | {
+        readonly cdn?: string;
+        readonly title?: string;
+        /** URL the Scalar UI fetches the OpenAPI document from. */
+        readonly openApiJsonUrl?: string;
+      }
+    | undefined;
 }
 
-type Handler = (req: Request) => Promise<Response>;
+export type PosRouteHandler = (req: Request) => Promise<Response>;
+type Handler = PosRouteHandler;
 
 function guard(req: Request, cfg: ApiHandlerConfig): Response | null {
   if (req.method !== "GET" && req.method !== "HEAD") {
@@ -49,7 +61,7 @@ export function createTrpcHandlers(
     const rejected = guard(req, cfg);
     if (rejected !== null) return rejected;
     return fetchRequestHandler({
-      endpoint: "/api/trpc",
+      endpoint: cfg.trpcEndpoint ?? "/api/trpc",
       req,
       router,
       createContext: async () => cfg.createContext(req),
@@ -69,7 +81,7 @@ export function createOpenApiHandlers(
     const rejected = guard(req, cfg);
     if (rejected !== null) return rejected;
     return createOpenApiFetchHandler({
-      endpoint: "/api/rest",
+      endpoint: cfg.restEndpoint ?? "/api/rest",
       req,
       router,
       createContext: async ({ req: innerReq }: { req: Request }) => cfg.createContext(innerReq),
@@ -99,7 +111,7 @@ export function createOpenApiJsonHandler(router: OpenApiRouter, cfg: ApiHandlerC
 
 export function createDocsHandler(cfg: ApiHandlerConfig): () => Response | Promise<Response> {
   return ApiReference({
-    url: "/api/openapi.json",
+    url: cfg.docs?.openApiJsonUrl ?? "/api/openapi.json",
     ...(cfg.docs?.cdn !== undefined ? { cdn: cfg.docs.cdn } : {}),
   });
 }

@@ -50,6 +50,11 @@ const envSchema = z
     /** Explicit opt-in: memory cache in production disables shared invalidation AND API rate limiting. */
     ALLOW_MEMORY_CACHE_IN_PROD: z.stringbool().default(false),
     DEFAULT_LOCALE: z.string().min(2).default("en"),
+    /** Single mount for every POS surface (auth/trpc/rest/openapi.json/docs). */
+    POS_API_BASE_PATH: z
+      .string()
+      .regex(/^\/.*[^/]$/, 'must start with "/" and not end with "/"')
+      .default("/api/pos"),
   })
   .refine((e) => e.CACHE_DRIVER !== "ioredis" || e.CACHE_URL !== undefined, {
     error: "CACHE_DRIVER=ioredis requires CACHE_URL",
@@ -115,6 +120,7 @@ export interface PosEnv {
   readonly API_MAX_BODY_BYTES: number;
   readonly ALLOW_MEMORY_CACHE_IN_PROD: boolean;
   readonly DEFAULT_LOCALE: string;
+  readonly POS_API_BASE_PATH: string;
 }
 
 export type PosEnvSource = Readonly<Record<string, string | undefined>>;

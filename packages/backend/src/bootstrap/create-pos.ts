@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AnalyticsPort, LoggerPort } from "@nukesai-pos/common";
+import { posApiPaths } from "@nukesai-pos/common/constants";
 import { noopAnalytics } from "@nukesai-pos/common/observability";
 import type pg from "pg";
 
@@ -91,6 +92,7 @@ export async function createNukesPos(options: CreateNukesPosOptions): Promise<Nu
     options.mail ?? (env.MAIL_DRIVER === "smtp" ? createNodemailerMail(env) : createNoopMail());
 
   const trustedOrigins = parseTrustedOrigins(env);
+  const paths = posApiPaths(env.POS_API_BASE_PATH);
   const auth = createAuth({
     env: {
       secret: env.BETTER_AUTH_SECRET,
@@ -98,6 +100,7 @@ export async function createNukesPos(options: CreateNukesPosOptions): Promise<Nu
       trustedOrigins,
       cookieDomain: env.AUTH_COOKIE_DOMAIN,
       appName: "Nukes AI POS",
+      basePath: paths.auth,
     },
     db: posDb.db,
     schema,

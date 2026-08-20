@@ -57,6 +57,7 @@ const makeEnv = (overrides: Partial<PosEnv> = {}): PosEnv => ({
   API_MAX_BODY_BYTES: 1_048_576,
   DEFAULT_LOCALE: "en",
   ALLOW_MEMORY_CACHE_IN_PROD: false,
+  POS_API_BASE_PATH: "/api/pos",
   ...overrides,
 });
 

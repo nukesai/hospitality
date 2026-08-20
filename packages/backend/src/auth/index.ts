@@ -18,6 +18,9 @@ export interface AuthEnv {
   readonly trustedOrigins: readonly string[];
   readonly cookieDomain?: string | undefined;
   readonly appName: string;
+  /** Mount path of the auth handler inside the app, e.g. `/api/pos/auth`.
+   *  MUST match where the consumer routes requests (better-auth default: /api/auth). */
+  readonly basePath?: string | undefined;
 }
 
 export interface CreateAuthDeps {
@@ -55,6 +58,7 @@ export const buildAuthOptions = (deps: CreateAuthDeps): PosAuthOptions => ({
   appName: deps.env.appName,
   secret: deps.env.secret,
   baseURL: deps.env.baseUrl,
+  ...(deps.env.basePath !== undefined ? { basePath: deps.env.basePath } : {}),
   trustedOrigins: [...deps.env.trustedOrigins],
   telemetry: { enabled: false },
   database: drizzleAdapter(deps.db, {
