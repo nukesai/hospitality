@@ -1,10 +1,16 @@
 import path from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 import { assertCleanWorktree } from "../utils/git.js";
-import { writeGenerated } from "../utils/generated.js";
 import { readManifest, writeManifest, type Manifest } from "../utils/manifest.js";
-import { POS_FEATURES, ROUTER_MARKERS, type PosFeatureTemplate } from "../templates/plan.js";
+import {
+  POS_FEATURES,
+  renderRoutersApp,
+  ROUTER_MARKERS,
+  routerBlocks,
+  type PosFeatureTemplate,
+} from "../templates/plan.js";
 
 export interface AddOptions {
   readonly cwd: string;
@@ -16,12 +22,15 @@ export interface AddReport {
   readonly added: readonly string[];
   readonly alreadyPresent: readonly string[];
   readonly unknown: readonly string[];
-  readonly conflicted: readonly string[];
 }
 
-/** Splices the feature imports/bindings into the marker blocks of _app.ts,
- *  leaving everything the consumer wrote outside the markers untouched. */
-export const spliceRouters = (source: string, features: readonly PosFeatureTemplate[]): string => {
+/** Splices the composition blocks (core + features, PACKAGE imports) into the
+ *  marker blocks of _app.ts, leaving everything outside them untouched. */
+export const spliceRouters = (
+  source: string,
+  features: readonly string[],
+  registry: Readonly<Record<string, PosFeatureTemplate>> = POS_FEATURES,
+): string => {
   const { importsOpen, importsClose, routersOpen, routersClose } = ROUTER_MARKERS;
   for (const marker of [importsOpen, importsClose, routersOpen, routersClose]) {
     if (!source.includes(marker)) {
@@ -30,23 +39,18 @@ export const spliceRouters = (source: string, features: readonly PosFeatureTempl
       );
     }
   }
-  const imports = features
-    .map((f) => `import { ${f.routerExport} } from "./${f.name}";`)
-    .join("\n");
-  const bindings = features.map((f) => `  ${f.name}: ${f.routerExport},`).join("\n");
-  const importsBlock = `${importsOpen}\n${imports}${imports === "" ? "" : "\n"}${importsClose}`;
-  const routersBlock = `${routersOpen}\n${bindings}${bindings === "" ? "" : "\n"}  ${routersClose}`;
+  const { importsBlock, bindingsBlock } = routerBlocks(features, registry);
   const beforeImports = source.slice(0, source.indexOf(importsOpen));
   const betweenBlocks = source.slice(
     source.indexOf(importsClose) + importsClose.length,
     source.indexOf(routersOpen),
   );
   const after = source.slice(source.indexOf(routersClose) + routersClose.length);
-  return `${beforeImports}${importsBlock}${betweenBlocks}${routersBlock}${after}`;
+  return `${beforeImports}${importsBlock}${betweenBlocks}${bindingsBlock}${after}`;
 };
 
-/** Materializes feature routers: writes the router file from the registry and
- *  re-splices _app.ts. The registry is the only source — nothing hardcoded. */
+/** Wires features in: routers are PACKAGE code, so `add` only re-splices the
+ *  composition markers and records the feature — no files materialized. */
 export async function runAdd(
   features: readonly string[],
   options: AddOptions,
@@ -62,48 +66,37 @@ export async function runAdd(
 
   const unknown = features.filter((feature) => !(feature in registry));
   if (unknown.length > 0) {
-    return { added: [], alreadyPresent: [], unknown, conflicted: [] };
+    return { added: [], alreadyPresent: [], unknown };
   }
 
   const alreadyPresent = features.filter((feature) => manifest.features.includes(feature));
   const added = features.filter((feature) => !manifest.features.includes(feature));
-  const conflicted: string[] = [];
 
   if (added.length > 0) {
     const nextFeatures = [...manifest.features, ...added];
     const srcDir = manifest.files.some((file) => file.startsWith("src/"));
     const prefix = srcDir ? "src/" : "";
-    const active = nextFeatures
-      .map((name) => registry[name])
-      .filter((feature): feature is PosFeatureTemplate => feature !== undefined);
 
-    const addedFeatures = added
-      .map((name) => registry[name])
-      .filter((feature): feature is PosFeatureTemplate => feature !== undefined);
-    for (const feature of addedFeatures) {
-      const result = await writeGenerated(
-        options.cwd,
-        `${prefix}${feature.routerFile}`,
-        feature.body,
-        options.dryRun,
-      );
-      if (result.outcome === "conflicted") conflicted.push(result.path);
+    // The default scaffold has NO server dir (route.ts consumes posCoreRouter);
+    // the extension file materializes the first time features are managed.
+    const appRelative = `${prefix}server/routers/_app.ts`;
+    const appPath = path.resolve(options.cwd, appRelative);
+    if (existsSync(appPath)) {
+      const source = await readFile(appPath, "utf8");
+      const spliced = spliceRouters(source, nextFeatures, registry);
+      if (!options.dryRun && spliced !== source) await writeFile(appPath, spliced);
+    } else if (!options.dryRun) {
+      await mkdir(path.dirname(appPath), { recursive: true });
+      await writeFile(appPath, renderRoutersApp(nextFeatures, registry));
     }
-
-    const appPath = path.resolve(options.cwd, `${prefix}server/routers/_app.ts`);
-    const source = await readFile(appPath, "utf8");
-    const spliced = spliceRouters(source, active);
-    if (!options.dryRun && spliced !== source) await writeFile(appPath, spliced);
 
     const next: Manifest = {
       ...manifest,
       features: nextFeatures,
-      files: [
-        ...new Set([...manifest.files, ...addedFeatures.map((f) => `${prefix}${f.routerFile}`)]),
-      ],
+      files: [...new Set([...manifest.files, appRelative])],
     };
     if (!options.dryRun) await writeManifest(options.cwd, next);
   }
 
-  return { added, alreadyPresent, unknown: [], conflicted };
+  return { added, alreadyPresent, unknown: [] };
 }

@@ -6,111 +6,19 @@
  * editing the example.
  */
 
-export const routersApp = `// Router composition — the ONLY consumer-owned tRPC file (R1: built routers
-// cannot ship from the package; assembling them HERE is what gives the app
-// its precise AppRouter type and its extension point for custom procedures).
-// \`nukes-pos add <feature>\` manages the marked blocks; everything outside
-// them is yours.
-import { posTrpc } from "@nukesai-pos/backend/trpc";
-
-import { healthRouter } from "./health";
-// <nukes-pos:router-imports>
-import { ordersRouter } from "./orders";
-// </nukes-pos:router-imports>
-
-export const appRouter = posTrpc.router({
-  health: healthRouter,
-  // <nukes-pos:routers>
-  orders: ordersRouter,
-  // </nukes-pos:routers>
-});
-
-export type AppRouter = typeof appRouter;
-`;
-
-export const routersHealth = `import {
-  healthCheck,
-  healthInput,
-  healthOutput,
-  posTrpc,
-  publicProcedure,
-} from "@nukesai-pos/backend/trpc";
-
-export const healthRouter = posTrpc.router({
-  check: publicProcedure
-    .meta({ openapi: { method: "GET", path: "/health", tags: ["system"] } })
-    .input(healthInput)
-    .output(healthOutput) // .output() REQUIRED for OpenAPI procedures
-    .query(({ input }) => healthCheck(input)),
-});
-`;
-
-export const routersOrders = `import {
-  branchProcedure,
-  createOrder,
-  createOrderInput,
-  listOrders,
-  listOrdersInput,
-  orderDtoOutput,
-  orderPageOutput,
-  posTrpc,
-  updateOrderStatus,
-  updateOrderStatusInput,
-} from "@nukesai-pos/backend/trpc";
-import { TRPCError } from "@trpc/server";
-import { z } from "zod";
-
-export const ordersRouter = posTrpc.router({
-  list: branchProcedure({ resource: "orders", action: "read" })
-    .input(listOrdersInput)
-    .output(orderPageOutput)
-    .query(async ({ ctx, input }) =>
-      listOrders({ db: ctx.deps.db, cache: ctx.deps.cache }, ctx.rls, input),
-    ),
-  create: branchProcedure({ resource: "orders", action: "create" })
-    .meta({ cacheInvalidates: ["orders"] })
-    .input(createOrderInput)
-    .output(orderDtoOutput)
-    .mutation(async ({ ctx, input }) =>
-      createOrder({ db: ctx.deps.db, cache: ctx.deps.cache }, ctx.rls, input),
-    ),
-  updateStatus: branchProcedure({ resource: "orders", action: "update" })
-    .meta({ cacheInvalidates: ["orders"] })
-    .input(updateOrderStatusInput)
-    .output(orderDtoOutput)
-    .mutation(async ({ ctx, input }) => {
-      const updated = await updateOrderStatus(
-        { db: ctx.deps.db, cache: ctx.deps.cache },
-        ctx.rls,
-        input,
-      );
-      if (updated === null) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "errors.resourceNotFound" });
-      }
-      return updated;
-    }),
-  // Deliberately-undeclared mutation proving enforceCacheMeta fires (the
-  // invalidation-discipline canary). NEVER shipped to production.
-  ...(process.env.NODE_ENV !== "production"
-    ? {
-        _cacheCanary: branchProcedure()
-          .input(z.object({}))
-          .mutation(() => ({ ok: true }) as const),
-      }
-    : {}),
-});
-`;
-
 export const apiRoute = `// THE api route: every POS surface (auth/trpc/rest/openapi.json/docs) mounts
 // under POS_API_BASE_PATH — this file is the only consumer API wiring needed.
+// posCoreRouter ships every feature router pre-composed; new features arrive
+// with the package version, zero edits here. (App-local procedures? See
+// \`nukes-pos add\` — it scaffolds server/routers/_app.ts and you point the
+// import below at it.)
 import { getPos } from "@nukesai-pos/backend/bootstrap";
 import { createPosApi } from "@nukesai-pos/backend/next";
-
-import { appRouter } from "../../../../server/routers/_app";
+import { posCoreRouter } from "@nukesai-pos/backend/trpc";
 
 const pos = await getPos();
 
-export const { GET, POST, PUT, PATCH, DELETE } = createPosApi(pos, appRouter, {
+export const { GET, POST, PUT, PATCH, DELETE } = createPosApi(pos, posCoreRouter, {
   docs: { title: "Nukes AI POS API" },
 });
 

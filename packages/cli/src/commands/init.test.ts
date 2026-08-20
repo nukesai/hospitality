@@ -30,9 +30,6 @@ describe("runInit", () => {
     expect(report.created).toEqual(
       expect.arrayContaining([
         ".npmrc",
-        "server/routers/_app.ts",
-        "server/routers/health.ts",
-        "server/routers/orders.ts",
         "app/api/pos/[[...pos]]/route.ts",
         "instrumentation.ts",
         "i18n/request.ts",
@@ -49,7 +46,9 @@ describe("runInit", () => {
 
     const manifest = await readManifest(cwd);
     expect(manifest).toMatchObject({ version: "0.0.0", features: ["orders"] });
-    expect(manifest?.files).toContain("server/routers/orders.ts");
+    // Routers are PACKAGE code — the DEFAULT consumer has no server dir at all.
+    expect(existsSync(path.join(cwd, "server"))).toBe(false);
+    expect(manifest?.files.some((f) => f.includes("server/"))).toBe(false);
 
     // Generated files are stamped; deps injected without clobbering existing pins.
     const route = await readFile(path.join(cwd, "app/api/pos/[[...pos]]/route.ts"), "utf8");
@@ -91,27 +90,26 @@ describe("runInit", () => {
     const report = await runInit({ cwd, ...OPTIONS });
     expect(report.created).toEqual([]);
     expect(report.conflicted).toEqual([]);
-    expect(report.skipped).toEqual(expect.arrayContaining([".npmrc", "server/routers/health.ts"]));
+    expect(report.skipped).toEqual(expect.arrayContaining([".npmrc", "instrumentation.ts"]));
   });
 
   it("never clobbers a hand-edited generated file — writes .new beside it", async () => {
     const cwd = await makeApp();
     await runInit({ cwd, ...OPTIONS });
-    const target = path.join(cwd, "server/routers/_app.ts");
-    await writeFile(target, `${await readFile(target, "utf8")}\n// my custom router\n`);
+    const target = path.join(cwd, "instrumentation.ts");
+    await writeFile(target, `${await readFile(target, "utf8")}\n// my custom hook\n`);
     const report = await runInit({ cwd, ...OPTIONS });
-    expect(report.conflicted).toContain("server/routers/_app.ts");
+    expect(report.conflicted).toContain("instrumentation.ts");
     expect(existsSync(`${target}.new`)).toBe(true);
-    expect(await readFile(target, "utf8")).toContain("my custom router");
+    expect(await readFile(target, "utf8")).toContain("my custom hook");
   });
 
   it("leaves unstamped user files alone too", async () => {
     const cwd = await makeApp();
-    await mkdir(path.join(cwd, "server", "routers"), { recursive: true });
-    await writeFile(path.join(cwd, "server/routers/_app.ts"), "// the consumer's own file\n");
+    await writeFile(path.join(cwd, "instrumentation.ts"), "// the consumer's own file\n");
     const report = await runInit({ cwd, ...OPTIONS });
-    expect(report.conflicted).toContain("server/routers/_app.ts");
-    expect(await readFile(path.join(cwd, "server/routers/_app.ts"), "utf8")).toBe(
+    expect(report.conflicted).toContain("instrumentation.ts");
+    expect(await readFile(path.join(cwd, "instrumentation.ts"), "utf8")).toBe(
       "// the consumer's own file\n",
     );
   });
@@ -119,11 +117,11 @@ describe("runInit", () => {
   it("rewrites a pristine file whose template changed (upgrade semantics)", async () => {
     const cwd = await makeApp();
     await runInit({ cwd, ...OPTIONS });
-    const target = path.join(cwd, "server/routers/health.ts");
+    const target = path.join(cwd, "instrumentation.ts");
     await writeFile(target, stamp("// an OLD template body\n"));
     const report = await runInit({ cwd, ...OPTIONS });
-    expect(report.updated).toContain("server/routers/health.ts");
-    expect(await readFile(target, "utf8")).toContain("healthRouter");
+    expect(report.updated).toContain("instrumentation.ts");
+    expect(await readFile(target, "utf8")).toContain("registerGlobalErrorHandlers");
   });
 
   it("appends the scope to an existing unrelated .npmrc and env block once", async () => {

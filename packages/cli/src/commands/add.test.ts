@@ -1,93 +1,113 @@
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { readManifest } from "../utils/manifest.js";
-import { ROUTER_MARKERS, type PosFeatureTemplate } from "../templates/plan.js";
+import { ROUTER_MARKERS } from "../templates/plan.js";
 import { runInit } from "./init.js";
 import { runAdd, spliceRouters } from "./add.js";
 
-const makeApp = async (): Promise<string> => {
+const makeApp = async (srcDir = false): Promise<string> => {
   const cwd = await mkdtemp(path.join(tmpdir(), "nukes-cli-add-"));
   await writeFile(path.join(cwd, "next.config.ts"), "export default {};\n");
-  await mkdir(path.join(cwd, "app"), { recursive: true });
+  await mkdir(path.join(cwd, ...(srcDir ? ["src", "app"] : ["app"])), { recursive: true });
   await writeFile(path.join(cwd, "tsconfig.json"), "{}");
   await writeFile(path.join(cwd, "package.json"), '{ "dependencies": { "next": "16.3.1" } }\n');
-  // Start WITHOUT features so `add` does the materializing.
+  // Start WITHOUT features so `add` does the wiring.
   await runInit({ cwd, dryRun: false, force: true, version: "0.0.0", features: [] });
   return cwd;
 };
 
 const OPTIONS = { dryRun: false, force: true };
 
-const KDS: PosFeatureTemplate = {
-  name: "kds",
-  routerFile: "server/routers/kds.ts",
-  routerExport: "kdsRouter",
-  body: "export const kdsRouter = 1;\n",
-};
-
 describe("spliceRouters", () => {
-  it("fills both marker blocks and preserves everything outside them", () => {
+  it("fills both marker blocks (core always on) and preserves custom code", () => {
     const source = [
       "// custom header",
       ROUTER_MARKERS.importsOpen,
       ROUTER_MARKERS.importsClose,
       'import { myRouter } from "./mine";',
       "",
-      `  ${ROUTER_MARKERS.routersOpen}`.trimStart(),
+      ROUTER_MARKERS.routersOpen,
       `  ${ROUTER_MARKERS.routersClose}`,
       "  mine: myRouter,",
     ].join("\n");
-    const spliced = spliceRouters(source, [KDS]);
-    expect(spliced).toContain('import { kdsRouter } from "./kds";');
-    expect(spliced).toContain("  kds: kdsRouter,");
+    const spliced = spliceRouters(source, ["orders"]);
+    expect(spliced).toContain(
+      'import { healthRouter, ordersRouter } from "@nukesai-pos/backend/trpc";',
+    );
+    expect(spliced).toContain("  orders: ordersRouter,");
     expect(spliced).toContain("// custom header");
     expect(spliced).toContain('import { myRouter } from "./mine";');
     expect(spliced).toContain("  mine: myRouter,");
   });
 
-  it("renders empty blocks when the last feature is removed", () => {
-    const source = [
-      ROUTER_MARKERS.importsOpen,
-      'import { kdsRouter } from "./kds";',
-      ROUTER_MARKERS.importsClose,
-      `  ${ROUTER_MARKERS.routersOpen}`.trimStart(),
-      "  kds: kdsRouter,",
-      `  ${ROUTER_MARKERS.routersClose}`,
-    ].join("\n");
-    const spliced = spliceRouters(source, []);
-    expect(spliced).not.toContain("kdsRouter");
+  it("keeps the core router when the last feature is removed", () => {
+    const spliced = spliceRouters(
+      [
+        ROUTER_MARKERS.importsOpen,
+        ROUTER_MARKERS.importsClose,
+        ROUTER_MARKERS.routersOpen,
+        `  ${ROUTER_MARKERS.routersClose}`,
+      ].join("\n"),
+      [],
+    );
+    expect(spliced).toContain('import { healthRouter } from "@nukesai-pos/backend/trpc";');
+    expect(spliced).not.toContain("ordersRouter");
   });
 
   it("throws a restorable error when a marker is missing", () => {
-    expect(() => spliceRouters("export const appRouter = 1;", [KDS])).toThrow(
+    expect(() => spliceRouters("export const appRouter = 1;", ["orders"])).toThrow(
       /missing the .* marker/,
     );
   });
 });
 
 describe("runAdd", () => {
-  it("materializes the feature router and splices _app.ts from the registry", async () => {
+  it("materializes the extension file on first use and wires the feature", async () => {
     const cwd = await makeApp();
-    const before = await readFile(path.join(cwd, "server/routers/_app.ts"), "utf8");
-    expect(before).not.toContain("ordersRouter");
+    // Default scaffold: NO server dir — the route consumes posCoreRouter.
+    expect(existsSync(path.join(cwd, "server"))).toBe(false);
 
     const report = await runAdd(["orders"], { cwd, ...OPTIONS });
     expect(report.added).toEqual(["orders"]);
-    expect(report.conflicted).toEqual([]);
-    expect(existsSync(path.join(cwd, "server/routers/orders.ts"))).toBe(true);
+    expect(existsSync(path.join(cwd, "server/routers/orders.ts"))).toBe(false);
 
     const after = await readFile(path.join(cwd, "server/routers/_app.ts"), "utf8");
-    expect(after).toContain('import { ordersRouter } from "./orders";');
+    expect(after).toContain(
+      'import { healthRouter, ordersRouter } from "@nukesai-pos/backend/trpc";',
+    );
     expect(after).toContain("orders: ordersRouter,");
-
     const manifest = await readManifest(cwd);
     expect(manifest?.features).toEqual(["orders"]);
-    expect(manifest?.files).toContain("server/routers/orders.ts");
+    expect(manifest?.files).toContain("server/routers/_app.ts");
+  });
+
+  it("splices an EXISTING extension file, preserving custom procedures", async () => {
+    const cwd = await makeApp();
+    const registry = {
+      orders: { name: "orders", routerExport: "ordersRouter" },
+      kds: { name: "kds", routerExport: "kdsRouter" },
+    };
+    await runAdd(["orders"], { cwd, ...OPTIONS }, registry);
+    const appPath = path.join(cwd, "server/routers/_app.ts");
+    await writeFile(
+      appPath,
+      (await readFile(appPath, "utf8")).replace(
+        "export type AppRouter",
+        "const mine = 1;\nvoid mine;\nexport type AppRouter",
+      ),
+    );
+    // A dry-run over the existing file changes nothing on disk.
+    await runAdd(["kds"], { cwd, dryRun: true, force: true }, registry);
+    expect(await readFile(appPath, "utf8")).not.toContain("kdsRouter");
+    // The real run splices the new feature in and keeps the custom line.
+    await runAdd(["kds"], { cwd, ...OPTIONS }, registry);
+    const after = await readFile(appPath, "utf8");
+    expect(after).toContain("kds: kdsRouter,");
+    expect(after).toContain("const mine = 1;");
   });
 
   it("dedupes features that are already installed", async () => {
@@ -102,7 +122,6 @@ describe("runAdd", () => {
     const cwd = await makeApp();
     const report = await runAdd(["nope"], { cwd, ...OPTIONS });
     expect(report.unknown).toEqual(["nope"]);
-    expect(existsSync(path.join(cwd, "server/routers/nope.ts"))).toBe(false);
   });
 
   it("requires an initialised app", async () => {
@@ -114,36 +133,16 @@ describe("runAdd", () => {
     const cwd = await makeApp();
     const report = await runAdd(["orders"], { cwd, dryRun: true, force: false });
     expect(report.added).toEqual(["orders"]);
-    expect(existsSync(path.join(cwd, "server/routers/orders.ts"))).toBe(false);
     expect((await readManifest(cwd))?.features).toEqual([]);
+    expect(existsSync(path.join(cwd, "server/routers/_app.ts"))).toBe(false);
   });
 
-  it("supports custom registries (kds fixture)", async () => {
-    const cwd = await makeApp();
-    const report = await runAdd(["kds"], { cwd, ...OPTIONS }, { kds: KDS });
-    expect(report.added).toEqual(["kds"]);
-    expect(await readFile(path.join(cwd, "server/routers/kds.ts"), "utf8")).toContain("kdsRouter");
-  });
-
-  it("reports a conflict when the feature file is already user-owned", async () => {
-    const cwd = await makeApp();
-    await mkdir(path.join(cwd, "server", "routers"), { recursive: true });
-    await writeFile(path.join(cwd, "server/routers/orders.ts"), "// mine\n");
-    const report = await runAdd(["orders"], { cwd, ...OPTIONS });
-    expect(report.conflicted).toEqual(["server/routers/orders.ts"]);
-    expect(await readFile(path.join(cwd, "server/routers/orders.ts"), "utf8")).toBe("// mine\n");
-    expect(existsSync(path.join(cwd, "server/routers/orders.ts.new"))).toBe(true);
-  });
-
-  it("places feature files under src/ when the scaffold lives there", async () => {
-    const cwd = await mkdtemp(path.join(tmpdir(), "nukes-cli-add-src-"));
-    await writeFile(path.join(cwd, "next.config.ts"), "export default {};\n");
-    await mkdir(path.join(cwd, "src", "app"), { recursive: true });
-    await writeFile(path.join(cwd, "tsconfig.json"), "{}");
-    await writeFile(path.join(cwd, "package.json"), '{ "dependencies": { "next": "16.3.1" } }\n');
-    await runInit({ cwd, dryRun: false, force: true, version: "0.0.0", features: [] });
+  it("creates the extension under src/ when the scaffold lives there", async () => {
+    const cwd = await makeApp(true);
     const report = await runAdd(["orders"], { cwd, ...OPTIONS });
     expect(report.added).toEqual(["orders"]);
-    expect(existsSync(path.join(cwd, "src/server/routers/orders.ts"))).toBe(true);
+    expect(await readFile(path.join(cwd, "src/server/routers/_app.ts"), "utf8")).toContain(
+      "orders: ordersRouter,",
+    );
   });
 });

@@ -96,8 +96,6 @@ program
     if (!options.silent) {
       for (const feature of report.added) log.success(`added    ${feature}`);
       for (const feature of report.alreadyPresent) log.info(`skipped  ${feature} (already added)`);
-      for (const file of report.conflicted)
-        log.warn(`conflict ${file} — hand-edited; wrote ${file}.new`);
     }
   });
 

@@ -26,20 +26,39 @@ export interface PlannedFile {
 
 export interface PosFeatureTemplate {
   readonly name: string;
-  /** Path under the project root (src/ prefix applied by the planner). */
-  readonly routerFile: string;
+  /** Router export in @nukesai-pos/backend/trpc — features are PACKAGE code;
+   *  `add` only wires the composition line, it materializes no files. */
   readonly routerExport: string;
-  readonly body: string;
 }
+
+/** Always-on core routers, ahead of any feature. */
+const POS_CORE_ROUTERS: readonly PosFeatureTemplate[] = [
+  { name: "health", routerExport: "healthRouter" },
+];
 
 /** Feature registry — `add` refuses anything not listed here. */
 export const POS_FEATURES: Readonly<Record<string, PosFeatureTemplate>> = {
-  orders: {
-    name: "orders",
-    routerFile: "server/routers/orders.ts",
-    routerExport: "ordersRouter",
-    body: bodies.routersOrders,
-  },
+  orders: { name: "orders", routerExport: "ordersRouter" },
+};
+
+/** The marker-block contents for a feature set (core always included). */
+export const routerBlocks = (
+  features: readonly string[],
+  registry: Readonly<Record<string, PosFeatureTemplate>> = POS_FEATURES,
+): { readonly importsBlock: string; readonly bindingsBlock: string } => {
+  const active = [
+    ...POS_CORE_ROUTERS,
+    ...features
+      .map((name) => registry[name])
+      .filter((feature): feature is PosFeatureTemplate => feature !== undefined),
+  ];
+  // POS_CORE_ROUTERS guarantees at least one entry — no empty-block cases.
+  const importLine = `import { ${active.map((f) => f.routerExport).join(", ")} } from "@nukesai-pos/backend/trpc";`;
+  const bindings = active.map((f) => `  ${f.name}: ${f.routerExport},`).join("\n");
+  return {
+    importsBlock: `${ROUTER_MARKERS.importsOpen}\n${importLine}\n${ROUTER_MARKERS.importsClose}`,
+    bindingsBlock: `${ROUTER_MARKERS.routersOpen}\n${bindings}\n  ${ROUTER_MARKERS.routersClose}`,
+  };
 };
 
 /** Consumer package.json additions. The three @nukesai-pos packages ride the
@@ -139,22 +158,31 @@ export const ROUTER_MARKERS: RouterMarkers = {
   routersClose: ROUTERS_CLOSE,
 };
 
-/** Renders _app.ts with the marker blocks filled for the given features. */
-export const renderRoutersApp = (features: readonly string[]): string => {
-  const active = features
-    .map((name) => POS_FEATURES[name])
-    .filter((feature): feature is PosFeatureTemplate => feature !== undefined);
-  const imports = active.map((f) => `import { ${f.routerExport} } from "./${f.name}";`).join("\n");
-  const bindings = active.map((f) => `  ${f.name}: ${f.routerExport},`).join("\n");
-  return bodies.routersApp
-    .replace(
-      `${ROUTER_IMPORTS_OPEN}\nimport { ordersRouter } from "./orders";\n${ROUTER_IMPORTS_CLOSE}`,
-      `${ROUTER_IMPORTS_OPEN}\n${imports}${imports === "" ? "" : "\n"}${ROUTER_IMPORTS_CLOSE}`,
-    )
-    .replace(
-      `${ROUTERS_OPEN}\n  orders: ordersRouter,\n  ${ROUTERS_CLOSE}`,
-      `${ROUTERS_OPEN}\n${bindings}${bindings === "" ? "" : "\n"}  ${ROUTERS_CLOSE}`,
-    );
+/**
+ * The EXTENSION file `nukes-pos add` materializes on demand. The DEFAULT
+ * consumer has no server/ directory at all — the route file consumes
+ * posCoreRouter and new features arrive with the package version. This file
+ * exists solely for apps that add their OWN procedures next to the packaged
+ * routers (and it tells them to repoint the route import).
+ */
+export const renderRoutersApp = (
+  features: readonly string[],
+  registry: Readonly<Record<string, PosFeatureTemplate>> = POS_FEATURES,
+): string => {
+  const { importsBlock, bindingsBlock } = routerBlocks(features, registry);
+  return `// App-local router composition (created by \`nukes-pos add\`).
+// Point app/api/pos/[[...pos]]/route.ts at THIS file's appRouter instead of
+// posCoreRouter, then add your own procedures below — the marked blocks stay
+// managed by the CLI, everything else is yours.
+import { posTrpc } from "@nukesai-pos/backend/trpc";
+${importsBlock}
+
+export const appRouter = posTrpc.router({
+${bindingsBlock}
+});
+
+export type AppRouter = typeof appRouter;
+`;
 };
 
 const prefix = (ctx: TemplateContext, path: string): string => (ctx.srcDir ? `src/${path}` : path);
@@ -162,8 +190,6 @@ const prefix = (ctx: TemplateContext, path: string): string => (ctx.srcDir ? `sr
 /** Every file `init` materializes for the given context (feature files included). */
 export const planFiles = (ctx: TemplateContext): readonly PlannedFile[] => {
   const files: PlannedFile[] = [
-    { path: prefix(ctx, "server/routers/_app.ts"), body: renderRoutersApp(ctx.features) },
-    { path: prefix(ctx, "server/routers/health.ts"), body: bodies.routersHealth },
     { path: prefix(ctx, "app/api/pos/[[...pos]]/route.ts"), body: bodies.apiRoute },
     { path: prefix(ctx, "instrumentation.ts"), body: bodies.instrumentation },
   ];
@@ -190,17 +216,6 @@ export const planFiles = (ctx: TemplateContext): readonly PlannedFile[] => {
         body: adminPageNoRouting,
       },
     );
-  }
-
-  const activeFeatures = ctx.features
-    .map((name) => POS_FEATURES[name])
-    .filter((feature): feature is PosFeatureTemplate => feature !== undefined);
-  for (const feature of activeFeatures) {
-    files.push({
-      path: prefix(ctx, feature.routerFile),
-      body: feature.body,
-      feature: feature.name,
-    });
   }
 
   return files;

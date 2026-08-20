@@ -14,11 +14,15 @@ import { buildCacheKey, hashDiscriminator, type CachePort } from "../../ports/ca
  * in SQL (defense in depth, R2). Pagination is keyset-only — no OFFSET.
  */
 
-export const listOrdersInput: z.ZodType<{
+export interface ListOrdersInput {
   readonly status?: (typeof ORDER_STATUSES)[number] | undefined;
   readonly limit?: number | undefined;
   readonly cursor?: { readonly createdAt: string; readonly id: string } | undefined;
-}> = z.object({
+}
+
+// z.ZodType<Output, Input> everywhere — a single-param annotation leaves the
+// Input side `unknown` and tRPC clients lose their input types entirely.
+export const listOrdersInput: z.ZodType<ListOrdersInput, ListOrdersInput> = z.object({
   status: z.enum(ORDER_STATUSES).optional(),
   limit: z.number().int().min(1).max(100).optional(),
   cursor: z.object({ createdAt: z.iso.datetime(), id: z.uuid() }).optional(),
@@ -38,7 +42,7 @@ export interface OrderPage {
   readonly nextCursor: { readonly createdAt: string; readonly id: string } | null;
 }
 
-export const orderDtoOutput: z.ZodType<OrderDto> = z.object({
+export const orderDtoOutput: z.ZodType<OrderDto, OrderDto> = z.object({
   id: z.uuid(),
   branchId: z.uuid(),
   status: z.string(),
@@ -46,7 +50,7 @@ export const orderDtoOutput: z.ZodType<OrderDto> = z.object({
   createdAt: z.iso.datetime(),
 });
 
-export const orderPageOutput: z.ZodType<OrderPage> = z.object({
+export const orderPageOutput: z.ZodType<OrderPage, OrderPage> = z.object({
   items: z.array(orderDtoOutput),
   nextCursor: z.object({ createdAt: z.iso.datetime(), id: z.uuid() }).nullable(),
 });
@@ -117,7 +121,11 @@ export async function listOrders(
   );
 }
 
-export const createOrderInput: z.ZodType<{ readonly total: string }> = z.object({
+export interface CreateOrderInput {
+  readonly total: string;
+}
+
+export const createOrderInput: z.ZodType<CreateOrderInput, CreateOrderInput> = z.object({
   // numeric(12,2) travels as a string — never a float.
   total: z.string().regex(/^\d{1,10}(\.\d{1,2})?$/),
 });
@@ -137,13 +145,16 @@ export async function createOrder(
   });
 }
 
-export const updateOrderStatusInput: z.ZodType<{
+export interface UpdateOrderStatusInput {
   readonly orderId: string;
   readonly status: (typeof ORDER_STATUSES)[number];
-}> = z.object({
-  orderId: z.uuid(),
-  status: z.enum(ORDER_STATUSES),
-});
+}
+
+export const updateOrderStatusInput: z.ZodType<UpdateOrderStatusInput, UpdateOrderStatusInput> =
+  z.object({
+    orderId: z.uuid(),
+    status: z.enum(ORDER_STATUSES),
+  });
 
 export async function updateOrderStatus(
   deps: OrderServiceDeps,

@@ -7,12 +7,7 @@
       "project": ["scripts/**/*.mjs", "e2e/**/*.ts", "*.{js,ts}"]
     },
     "apps/example": {
-      "entry": [
-        "app/**/{page,layout,route}.tsx",
-        "app/**/route.ts",
-        "server/**/*.ts",
-        "i18n/**/*.ts"
-      ],
+      "entry": ["app/**/{page,layout,route}.tsx", "app/**/route.ts", "i18n/**/*.ts"],
       "project": ["**/*.{ts,tsx}"]
     },
     "packages/common": {

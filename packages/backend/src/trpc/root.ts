@@ -32,7 +32,7 @@ import {
  * `.router()` on the annotated root still infers the consumer's precise
  * AppRouter type — inference happens at THEIR call site, under THEIR tsconfig.
  */
-interface PosRootOptions {
+export interface PosRootOptions {
   transformer: typeof superjson;
   errorFormatter: typeof posErrorFormatter;
 }

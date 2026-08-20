@@ -305,9 +305,6 @@ importers:
       superjson:
         specifier: 'catalog:'
         version: 2.2.6
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
     devDependencies:
       '@nukesai-pos/eslint-config':
         specifier: workspace:*

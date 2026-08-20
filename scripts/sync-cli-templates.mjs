@@ -4,9 +4,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
 export const TEMPLATE_SOURCES = {
-  routersApp: "apps/example/server/routers/_app.ts",
-  routersHealth: "apps/example/server/routers/health.ts",
-  routersOrders: "apps/example/server/routers/orders.ts",
   apiRoute: "apps/example/app/api/pos/[[...pos]]/route.ts",
   localeLayout: "apps/example/app/[locale]/layout.tsx",
   adminPage: "apps/example/app/[locale]/(nukes-pos)/admin/[[...admin]]/page.tsx",

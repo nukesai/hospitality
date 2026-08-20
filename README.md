@@ -21,8 +21,24 @@ method takes a `LocationId` first. Explicitly _not_ multi-tenant SaaS.
 
 ```bash
 cd your-nextjs-app
-npx @nukesai-pos/cli init     # detects app/, writes nukes-pos.json, .npmrc, route group
-npx @nukesai-pos/cli doctor   # verifies the installation
+npx @nukesai-pos/cli init     # scaffolds EVERYTHING: api catch-all, admin route,
+                              # i18n request config, routers, deps, env template,
+                              # and wraps next.config in withNukesPos()
+npx @nukesai-pos/cli add orders   # materialize feature routers (marker-managed)
+npx @nukesai-pos/cli doctor       # stamps, env, markers, version drift
+npx @nukesai-pos/cli upgrade      # regenerate pristine files after a bump
+```
+
+What a consumer app owns after `init` — everything else lives in the packages:
+
+```
+app/api/pos/[[...pos]]/route.ts   -> createPosApi(pos, posCoreRouter)  (auth/trpc/rest/openapi/docs;
+                                     new feature routers arrive with the package version — zero edits)
+app/(nukes-pos)/admin/[[...admin]]/page.tsx -> PosAdminShell            (sections routed package-side)
+i18n/request.ts                   -> createPosRequestConfig()           (one line)
+proxy.ts + app/[locale]/*         -> only with --i18n-routing (locale-prefixed URLs)
+server/routers/_app.ts            -> OPTIONAL, created by `nukes-pos add`
+                                     only when you add app-local procedures
 ```
 
 ## Development

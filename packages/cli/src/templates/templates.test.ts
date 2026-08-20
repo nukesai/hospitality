@@ -3,21 +3,12 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import * as bodies from "./bodies.js";
-import {
-  CONSUMER_DEPENDENCIES,
-  planFiles,
-  POS_FEATURES,
-  renderRoutersApp,
-  ROUTER_MARKERS,
-} from "./plan.js";
+import { CONSUMER_DEPENDENCIES, planFiles, POS_FEATURES, renderRoutersApp } from "./plan.js";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../../..");
 
 /** Mirror of scripts/sync-cli-templates.mjs — the fixture map. */
 const TEMPLATE_SOURCES: Readonly<Record<string, string>> = {
-  routersApp: "apps/example/server/routers/_app.ts",
-  routersHealth: "apps/example/server/routers/health.ts",
-  routersOrders: "apps/example/server/routers/orders.ts",
   apiRoute: "apps/example/app/api/pos/[[...pos]]/route.ts",
   localeLayout: "apps/example/app/[locale]/layout.tsx",
   adminPage: "apps/example/app/[locale]/(nukes-pos)/admin/[[...admin]]/page.tsx",
@@ -54,15 +45,21 @@ describe("template fixture sync (the zero-drift contract)", () => {
 });
 
 describe("renderRoutersApp", () => {
-  it("reproduces the fixture verbatim for the default feature set", () => {
-    expect(renderRoutersApp(["orders"])).toBe(bodies.routersApp);
+  it("renders the extension file with core + selected features", () => {
+    const rendered = renderRoutersApp(["orders"]);
+    expect(rendered).toContain(
+      'import { healthRouter, ordersRouter } from "@nukesai-pos/backend/trpc";',
+    );
+    expect(rendered).toContain("  health: healthRouter,");
+    expect(rendered).toContain("  orders: ordersRouter,");
+    expect(rendered).toContain("export type AppRouter = typeof appRouter;");
   });
 
-  it("renders empty marker blocks with no features", () => {
+  it("keeps the always-on core with no features selected", () => {
     const rendered = renderRoutersApp([]);
     expect(rendered).not.toContain("ordersRouter");
-    expect(rendered).toContain(`${ROUTER_MARKERS.importsOpen}\n${ROUTER_MARKERS.importsClose}`);
-    expect(rendered).toContain(`${ROUTER_MARKERS.routersOpen}\n  ${ROUTER_MARKERS.routersClose}`);
+    expect(rendered).toContain('import { healthRouter } from "@nukesai-pos/backend/trpc";');
+    expect(rendered).toContain("  health: healthRouter,");
   });
 });
 
@@ -83,10 +80,10 @@ describe("planFiles", () => {
     expect(routed).not.toContain("app/(nukes-pos)/layout.tsx");
   });
 
-  it("materializes registry features as managed files", () => {
+  it("features are composition-only: no feature files are ever planned", () => {
     const plan = planFiles({ srcDir: false, i18nRouting: false, features: ["orders"] });
-    const orders = plan.find((file) => file.feature === "orders");
-    expect(orders?.path).toBe("server/routers/orders.ts");
-    expect(orders?.body).toBe(POS_FEATURES.orders?.body);
+    expect(plan.some((file) => file.feature !== undefined)).toBe(false);
+    expect(plan.some((file) => file.path.includes("orders.ts"))).toBe(false);
+    expect(POS_FEATURES.orders?.routerExport).toBe("ordersRouter");
   });
 });

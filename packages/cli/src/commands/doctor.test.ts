@@ -51,7 +51,16 @@ describe("runDoctor", () => {
 
   it("reports missing scaffold files, lost markers, and version drift", async () => {
     const cwd = await makeInitialisedApp();
-    await rm(path.join(cwd, "server/routers/health.ts"));
+    await rm(path.join(cwd, "i18n/request.ts"));
+    // Simulate an extension file recorded in the ledger whose markers were lost.
+    const { readManifest, writeManifest } = await import("../utils/manifest.js");
+    const manifest = await readManifest(cwd);
+    if (manifest === null) throw new Error("manifest missing");
+    await writeManifest(cwd, {
+      ...manifest,
+      files: [...manifest.files, "server/routers/_app.ts"],
+    });
+    await mkdir(path.join(cwd, "server", "routers"), { recursive: true });
     await writeFile(path.join(cwd, "server/routers/_app.ts"), "// markers gone\n");
     await writeFile(
       path.join(cwd, "node_modules/@nukesai-pos/backend/package.json"),
@@ -60,7 +69,7 @@ describe("runDoctor", () => {
     const report = await runDoctor({ cwd });
     expect(report.errors).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("server/routers/health.ts"),
+        expect.stringContaining("i18n/request.ts"),
         expect.stringContaining("markers"),
       ]),
     );
@@ -102,7 +111,7 @@ describe("runDoctor", () => {
 
   it("warns on hand-edited files and missing env, errors on a short secret", async () => {
     const cwd = await makeInitialisedApp();
-    const target = path.join(cwd, "server/routers/orders.ts");
+    const target = path.join(cwd, "instrumentation.ts");
     await writeFile(target, "// hand edited without a stamp?? no: append\n", { flag: "a" });
     await writeFile(path.join(cwd, ".env"), "BETTER_AUTH_SECRET=short\n");
     const report = await runDoctor({ cwd });

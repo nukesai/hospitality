@@ -129,9 +129,20 @@ ships.
 ## 7. Backend-system rules (phase 2 — binding)
 
 - Decision record: `.nukes/RESEARCH-BACKEND.md` (contradiction resolutions R1–R16 are binding).
-- **Consumer owns the tRPC root**: backend ships context types, guard functions,
-  services and handler factories; `t`, procedures and routers live in the app
-  scaffold (apps/example/server/). Never export a built router from backend.
+- **The consumer owns NOTHING tRPC by default** (R1 resolved 2026-08-21): the
+  root (`posTrpc`), procedures, middlewares AND the built feature routers
+  (`healthRouter`, `ordersRouter`, `posCoreRouter`) all ship from
+  `@nukesai-pos/backend/trpc` with CHECKED cast-free hand annotations over
+  tRPC's public generics (TRPCBuiltRouter/TRPCQueryProcedure/...). Client
+  inference stays byte-precise ONLY while (a) every zod schema is annotated
+  `z.ZodType<Output, Input>` — the single-param form leaves Input=unknown and
+  silently widens all client inputs (compile-contract in
+  backend/src/trpc/routers.test.ts guards this) — and (b) the router
+  annotations stay in sync with their implementations (assignment-checked, no
+  casts). The consumer route file consumes `posCoreRouter`; app-local
+  procedures use the OPTIONAL extension file `nukes-pos add` scaffolds
+  (marker-managed `server/routers/_app.ts`, merged via
+  `posTrpc.mergeRouters` on the same root instance).
 - **RLS**: every branch table gets the four `branchGuard()` policies + branch-leading
   index; `withBranchContext` is the only sanctioned context entry; migrations/seeds
   run as `pos_owner`, runtime as `pos_app` (never BYPASSRLS, never FORCE RLS).
@@ -139,13 +150,34 @@ ships.
 - **Cache discipline**: every mutation declares `meta.cacheInvalidates` (or "none");
   the invalidate middleware must sit AFTER branchGuard (ctx order bug caught live).
   Reads fail open, invalidation fails closed. Keys/tags are branch-scoped.
-- **Env**: only `src/env.ts` interprets env; the package never reads process.env
-  (`scripts/**` excepted). Consumers call `createNukesPos({ env: process.env })`.
-- **i18n**: catalogs live ONCE in `@nukesai-pos/common` (single-brace `{name}`);
-  frontend derives i18next resources from them; i18next never enters common/backend.
+- **Env**: only `src/env.ts` interprets env values. Ambient `process.env` is
+  read in EXACTLY ONE module: `src/bootstrap/singleton.ts` (`getPos()` — the
+  documented app edge; it also auto-wires @vercel/functions when installed).
+  Everything else receives env as a parameter; `scripts/**` excepted.
+  `POS_API_BASE_PATH` (default `/api/pos`) is the single mount every surface
+  and client derives from via `posApiPaths()` in common.
+- **i18n**: catalogs live ONCE in `@nukesai-pos/common` — FLAT dotted keys,
+  single-brace `{name}` (= ICU simple arguments). Frontend derives NESTED
+  next-intl messages from them (`nestPosMessages`, round-trip-tested); the
+  `pos` namespace prevents consumer collisions and keeps wire error keys
+  (`t(error.message)`) working as relative paths. NO i18n framework ever
+  enters common/backend (lint-enforced: i18next, react-i18next, next-intl,
+  use-intl) — the server side uses the dependency-free common translator.
+  Consumer integration: `i18n/request.ts` one-liner over
+  `createPosRequestConfig` (the next-intl plugin demands an app-local relative
+  file); `PosIntl` in the root layout; optional routed mode = `proxy.ts` +
+  `[locale]` tree (`nukes-pos init --i18n-routing`).
 - **Stack**: `pnpm stack:up && pnpm db:migrate && pnpm db:seed`; integration suite
   `pnpm test:integration` (live RLS contracts, opt-in); full E2E `E2E_STACK=1 pnpm e2e`.
 - zod-openapi stays PINNED at 5.4.6 (6.x breaks trpc-to-openapi peers).
+- **CLI templates are generated from apps/example** — edit the example, run
+  `node scripts/sync-cli-templates.mjs`; `templates.test.ts` fails on drift.
+  The example app IS the CLI's output (routed variant). Scaffolded consumer
+  files carry the do-not-edit stamp; `nukes-pos upgrade` rewrites pristine
+  files only and drops `.new` next to hand-edited ones.
+- **Route templates never export `dynamic`/`runtime` segment configs** —
+  handlers are dynamic-by-default and `dynamic` is REMOVED under Cache
+  Components (build error for consumers who enable it).
 
 ## 8. Where to look
 
