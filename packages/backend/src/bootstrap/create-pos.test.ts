@@ -277,4 +277,72 @@ describe("createNukesPos", () => {
 
     expect(events).toEqual(["mail.close", "cache.close", "pool.end", "logger.flush"]);
   });
+
+  it("tears the pool down when a boot dies half-built", async () => {
+    // getPos() retries a failed boot, so a boot that creates the pool and then
+    // throws must close it — otherwise every retry strands another pg.Pool and
+    // a flapping database exhausts max_connections with pools nobody holds.
+    resetSingletons();
+    const { logger } = createRecordingLogger();
+    let pool: pg.Pool | undefined;
+    await expect(
+      createNukesPos({
+        env: { ...baseEnv, CACHE_DRIVER: "ioredis" }, // no CACHE_URL -> env parse is fine, connect is not
+        logger,
+        onPoolCreated: (created) => {
+          pool = created;
+        },
+        mail: { send: async () => Promise.resolve(), close: async () => Promise.resolve() },
+      }),
+    ).rejects.toThrow();
+    expect(pool).toBeUndefined(); // env validation fails before the pool exists
+  });
+
+  it("closes an ALREADY-created pool when a later boot step throws", async () => {
+    resetSingletons();
+    const { logger } = createRecordingLogger();
+    const ended: string[] = [];
+    let pool: pg.Pool | undefined;
+    const boom = new Error("cache driver unreachable");
+    await expect(
+      createNukesPos({
+        env: baseEnv,
+        logger,
+        onPoolCreated: (created) => {
+          pool = created;
+          const realEnd = created.end.bind(created);
+          Object.defineProperty(created, "end", {
+            value: async () => {
+              ended.push("end");
+              return realEnd();
+            },
+          });
+          throw boom; // the earliest post-pool step that can fail
+        },
+        mail: { send: async () => Promise.resolve(), close: async () => Promise.resolve() },
+      }),
+    ).rejects.toThrow(boom);
+    expect(pool).toBeDefined();
+    expect(ended).toEqual(["end"]);
+  });
+
+  it("a failing teardown never masks the original boot error", async () => {
+    resetSingletons();
+    const { logger } = createRecordingLogger();
+    const boom = new Error("cache driver unreachable");
+    await expect(
+      createNukesPos({
+        env: baseEnv,
+        logger,
+        onPoolCreated: (created) => {
+          Object.defineProperty(created, "end", {
+            value: async () => Promise.reject(new Error("pool already destroyed")),
+          });
+          throw boom;
+        },
+        mail: { send: async () => Promise.resolve(), close: async () => Promise.resolve() },
+      }),
+      // The caller must see WHY the boot failed, not why the cleanup did.
+    ).rejects.toThrow(boom);
+  });
 });

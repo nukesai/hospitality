@@ -17,16 +17,12 @@
     "@tanstack/react-query": "catalog:",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
-    "@vercel/functions": "catalog:",
     "better-auth": "catalog:",
-    "i18next": "catalog:",
     "next": "catalog:",
+    "next-intl": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-i18next": "catalog:",
-    "server-only": "catalog:",
-    "superjson": "catalog:",
-    "zod": "catalog:"
+    "superjson": "catalog:"
   },
   "devDependencies": {
     "@nukesai-pos/eslint-config": "workspace:*",

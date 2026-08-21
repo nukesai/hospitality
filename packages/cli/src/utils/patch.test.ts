@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { patchNextConfig, patchTsconfig } from "./patch.js";
+import { patchNextConfig } from "./patch.js";
 
 const makeDir = async (): Promise<string> => mkdtemp(path.join(tmpdir(), "nukes-cli-patch-"));
 
@@ -25,7 +25,7 @@ describe("patchNextConfig", () => {
     expect(await patchNextConfig(configPath, false)).toBe(true);
 
     const patched = await readFile(configPath, "utf8");
-    expect(patched).toContain('from "@nukesai-pos/backend/next"');
+    expect(patched).toContain('from "@nukesai-pos/frontend/next-config"');
     expect(patched).toContain("withNukesPos(");
     // Host options preserved.
     expect(patched).toContain("reactStrictMode: true");
@@ -47,14 +47,14 @@ describe("patchNextConfig", () => {
     const configPath = path.join(cwd, "next.config.mjs");
     await writeFile(
       configPath,
-      'import { withNukesPos } from "@nukesai-pos/backend/next";\n\nexport default {};\n',
+      'import { withNukesPos } from "@nukesai-pos/frontend/next-config";\n\nexport default {};\n',
     );
 
     expect(await patchNextConfig(configPath, false)).toBe(true);
     const patched = await readFile(configPath, "utf8");
     expect(patched).toContain("withNukesPos(");
     // The import must not be duplicated.
-    expect(patched.match(/@nukesai-pos\/backend\/next/g)).toHaveLength(1);
+    expect(patched.match(/@nukesai-pos\/frontend\/next-config/g)).toHaveLength(1);
   });
 
   it("repairs a half-patched config (export wrapped, import missing)", async () => {
@@ -64,7 +64,7 @@ describe("patchNextConfig", () => {
 
     expect(await patchNextConfig(configPath, false)).toBe(true);
     const patched = await readFile(configPath, "utf8");
-    expect(patched).toContain('from "@nukesai-pos/backend/next"');
+    expect(patched).toContain('from "@nukesai-pos/frontend/next-config"');
     // The wrapper must not be doubled.
     expect(patched.match(/withNukesPos\(/g)).toHaveLength(1);
   });
@@ -77,43 +77,83 @@ describe("patchNextConfig", () => {
     expect(await patchNextConfig(configPath, true)).toBe(true);
     expect(await readFile(configPath, "utf8")).toBe(FRESH_TS);
   });
-});
 
-describe("patchTsconfig", () => {
-  it("adds the alias while preserving comments", async () => {
+  it("REFUSES a CommonJS config instead of appending ESM to it", async () => {
     const cwd = await makeDir();
-    const tsconfigPath = path.join(cwd, "tsconfig.json");
-    await writeFile(
-      tsconfigPath,
-      `{
-  // keep me
-  "compilerOptions": { "strict": true }
-}
-`,
-    );
+    const configPath = path.join(cwd, "next.config.js");
+    const source = "const nextConfig = { reactStrictMode: true };\nmodule.exports = nextConfig;\n";
+    await writeFile(configPath, source);
 
-    expect(await patchTsconfig(tsconfigPath, false)).toBe(true);
-    const patched = await readFile(tsconfigPath, "utf8");
-    expect(patched).toContain("// keep me");
-    expect(patched).toContain('"@nukesai-pos/config"');
+    await expect(patchNextConfig(configPath, false)).rejects.toThrow(/CommonJS/);
+    // The customer's file is untouched — an ESM import spliced into a CJS
+    // config breaks every later `next build`.
+    expect(await readFile(configPath, "utf8")).toBe(source);
   });
 
-  it("no-ops when the alias already exists", async () => {
+  it("REFUSES a hoisted `export default function` config", async () => {
     const cwd = await makeDir();
-    const tsconfigPath = path.join(cwd, "tsconfig.json");
-    await writeFile(
-      tsconfigPath,
-      '{ "compilerOptions": { "paths": { "@nukesai-pos/config": ["./nukes-pos.config.ts"] } } }',
-    );
-    expect(await patchTsconfig(tsconfigPath, false)).toBe(false);
+    const configPath = path.join(cwd, "next.config.mjs");
+    const source = "export default function cfg(phase) {\n  return { basePath: phase };\n}\n";
+    await writeFile(configPath, source);
+
+    await expect(patchNextConfig(configPath, false)).rejects.toThrow(/not wrappable/);
+    expect(await readFile(configPath, "utf8")).toBe(source);
   });
 
-  it("dry-run leaves the file untouched", async () => {
+  it("wraps an arrow-function config (withNukesPos composes it, never spreads it)", async () => {
     const cwd = await makeDir();
-    const tsconfigPath = path.join(cwd, "tsconfig.json");
-    const original = "{}";
-    await writeFile(tsconfigPath, original);
-    expect(await patchTsconfig(tsconfigPath, true)).toBe(true);
-    expect(await readFile(tsconfigPath, "utf8")).toBe(original);
+    const configPath = path.join(cwd, "next.config.mjs");
+    await writeFile(configPath, "export default (phase) => ({ basePath: phase });\n");
+
+    expect(await patchNextConfig(configPath, false)).toBe(true);
+    const patched = await readFile(configPath, "utf8");
+    expect(patched).toContain("withNukesPos(phase =>");
+  });
+
+  it("REFUSES a config with no default export at all", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.mjs");
+    await writeFile(configPath, "export const config = {};\n");
+    await expect(patchNextConfig(configPath, false)).rejects.toThrow(/not a config/);
+  });
+
+  it("PRESERVES `satisfies NextConfig` (the shape Next's docs recommend)", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.ts");
+    await writeFile(
+      configPath,
+      'import type { NextConfig } from "next";\n\nexport default { reactStrictMode: true } satisfies NextConfig;\n',
+    );
+
+    expect(await patchNextConfig(configPath, false)).toBe(true);
+    const patched = await readFile(configPath, "utf8");
+    // Dropping the annotation would also strand `import type { NextConfig }`,
+    // which fails the consumer's own noUnusedLocals.
+    expect(patched).toContain("satisfies NextConfig");
+    expect(patched).toContain("withNukesPos({ reactStrictMode: true })");
+  });
+
+  it("PRESERVES an `as NextConfig` assertion", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.ts");
+    await writeFile(
+      configPath,
+      'import type { NextConfig } from "next";\n\nexport default { reactStrictMode: true } as NextConfig;\n',
+    );
+
+    expect(await patchNextConfig(configPath, false)).toBe(true);
+    const patched = await readFile(configPath, "utf8");
+    expect(patched).toContain("as NextConfig");
+    expect(patched).toContain("withNukesPos({ reactStrictMode: true })");
+  });
+
+  it("stays idempotent on an annotated config", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.ts");
+    await writeFile(configPath, "export default { a: 1 } satisfies Record<string, number>;\n");
+    await patchNextConfig(configPath, false);
+    const once = await readFile(configPath, "utf8");
+    expect(await patchNextConfig(configPath, false)).toBe(false);
+    expect(await readFile(configPath, "utf8")).toBe(once);
   });
 });

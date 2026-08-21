@@ -16,6 +16,13 @@ const config: ViteUserConfig = defineConfig({
   test: {
     name: "frontend",
     environment: "jsdom",
+    server: {
+      deps: {
+        // next-intl's ESM middleware imports bare `next/server`; vite must
+        // process it (Node's resolver trips over the extensionless specifier).
+        inline: ["next-intl"],
+      },
+    },
     // globals:false keeps published-library discipline (explicit imports, no
     // ambient types). Consequence: RTL's auto-cleanup registers only
     // `if (typeof afterEach === 'function')`, which is FALSE here — so

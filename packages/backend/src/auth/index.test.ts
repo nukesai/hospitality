@@ -87,6 +87,16 @@ describe("buildAuthOptions", () => {
     expect(options.baseURL).toBe(baseEnv.baseUrl);
     expect(options.trustedOrigins).toEqual([...baseEnv.trustedOrigins]);
     expect(options.trustedOrigins).not.toBe(deps.env.trustedOrigins);
+    expect(options.basePath).toBeUndefined(); // better-auth default /api/auth applies
+  });
+
+  it("mounts the handler at a custom basePath when the env provides one", () => {
+    const { deps } = makeDeps();
+    const options = buildAuthOptions({
+      ...deps,
+      env: { ...deps.env, basePath: "/api/pos/auth" },
+    });
+    expect(options.basePath).toBe("/api/pos/auth");
   });
 
   it("disables telemetry and wires a drizzle database adapter", () => {

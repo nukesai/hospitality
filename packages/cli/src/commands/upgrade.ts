@@ -1,58 +1,60 @@
-import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
-import { readManifest } from "../utils/manifest.js";
-import { inspect } from "../utils/stamp.js";
+import { assertCleanWorktree } from "../utils/git.js";
+import { readManifest, writeManifest } from "../utils/manifest.js";
+import { writeGenerated, type WriteOutcome } from "../utils/generated.js";
+import { isExtensionFile, planFiles } from "../templates/plan.js";
 
 export interface UpgradeOptions {
   readonly cwd: string;
   readonly dryRun: boolean;
-}
-
-/** @public Part of the UpgradeReport surface. */
-export interface UpgradePlanEntry {
-  readonly file: string;
-  readonly action: "regenerate" | "preserve-and-diff" | "missing" | "unstamped";
+  readonly version: string;
+  /** Proceed on a dirty worktree (same contract as init/add). */
+  readonly force?: boolean;
 }
 
 export interface UpgradeReport {
   readonly fromVersion: string;
-  readonly plan: readonly UpgradePlanEntry[];
+  readonly toVersion: string;
+  readonly plan: readonly { readonly file: string; readonly action: WriteOutcome }[];
 }
 
 /**
- * Plan (and later apply) regeneration of every stamped file the manifest
- * tracks. Hash-stamp aware: pristine files regenerate silently, edited files
- * are preserved and get a `.new` sidecar + diff. Defaults to dry-run — the
- * CLI never rewrites a customer repo unprompted.
+ * Regenerates every ledgered file for the installed CLI version: pristine
+ * files are rewritten in place, hand-edited files get a `<file>.new` beside
+ * them (never clobbered), and the manifest records the new version.
  */
 export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport> {
+  // Upgrade rewrites the LARGEST set of files of any command; the guard the
+  // other mutating commands enforce matters most here, so the version bump
+  // lands as its own reviewable diff.
+  assertCleanWorktree(options.cwd, options.force === true || options.dryRun);
+
   const manifest = await readManifest(options.cwd);
   if (manifest === null) {
     throw new Error("No nukes-pos.json found. Run `nukes-pos init` first.");
   }
 
-  const plan: UpgradePlanEntry[] = [];
-  for (const file of manifest.files) {
-    const absolute = path.resolve(options.cwd, file);
-    if (!existsSync(absolute)) {
-      plan.push({ file, action: "missing" });
-      continue;
-    }
-    const state = inspect(await readFile(absolute, "utf8"));
-    switch (state.kind) {
-      case "absent":
-        plan.push({ file, action: "unstamped" });
-        break;
-      case "pristine":
-        plan.push({ file, action: "regenerate" });
-        break;
-      case "modified":
-        plan.push({ file, action: "preserve-and-diff" });
-        break;
-    }
+  const srcDir = manifest.files.some((file) => file.startsWith("src/"));
+  const i18nRouting = manifest.files.some((file) => file.includes("[locale]"));
+  const files = planFiles({ srcDir, i18nRouting, features: manifest.features });
+
+  const plan: { file: string; action: WriteOutcome }[] = [];
+  for (const file of files) {
+    const result = await writeGenerated(options.cwd, file.path, file.body, options.dryRun);
+    plan.push({ file: result.path, action: result.outcome });
   }
 
-  return { fromVersion: manifest.version, plan };
+  if (!options.dryRun) {
+    await writeManifest(options.cwd, {
+      ...manifest,
+      version: options.version,
+      // Plan-owned paths are replaced; the `add`-owned extension file is
+      // carried over. Dropping it would blind `doctor` to a file on disk;
+      // unioning everything would strand the other i18n mode's paths forever.
+      files: [
+        ...new Set([...files.map((file) => file.path), ...manifest.files.filter(isExtensionFile)]),
+      ],
+    });
+  }
+
+  return { fromVersion: manifest.version, toVersion: options.version, plan };
 }

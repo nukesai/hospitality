@@ -1,5 +1,5 @@
 import { createBaseConfig } from "@nukesai-pos/eslint-config/base";
-import { boundaries } from "@nukesai-pos/eslint-config/boundaries";
+import { boundaries, withI18nFrameworkBan } from "@nukesai-pos/eslint-config/boundaries";
 
 export default [
   ...createBaseConfig({ tsconfigRootDir: import.meta.dirname }),
@@ -11,7 +11,9 @@ export default [
       // NOTE: flat config replaces rule options WHOLESALE — this block must
       // restate the serverZone patterns from
       // @nukesai-pos/eslint-config/boundaries, or it would silently wipe them.
-      "no-restricted-imports": [
+      // withI18nFrameworkBan folds the §7 i18n ban back in for the same reason
+      // (scripts/assert-lint-bans.mjs proves both survive).
+      "no-restricted-imports": withI18nFrameworkBan([
         "error",
         {
           paths: [
@@ -43,7 +45,7 @@ export default [
             },
           ],
         },
-      ],
+      ]),
     },
   },
 ];

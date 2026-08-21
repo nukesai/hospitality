@@ -1,11 +1,12 @@
 import { AppError, type LoggerPort } from "@nukesai-pos/common";
 import type { Translator } from "@nukesai-pos/common/i18n";
-import { TRPCError } from "@trpc/server";
+import { TRPCError, type TRPCDefaultErrorShape } from "@trpc/server";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { resolveLocale } from "../i18n/resolve-locale.js";
 import { createTRPCContext, posErrorFormatter } from "./init.js";
-import type { PosErrorShape, PosTrpcContext, PosTrpcDeps } from "./init.js";
+import type { PosTrpcContext, PosTrpcDeps } from "./init.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -50,6 +51,12 @@ const createHarness = (raw: SessionShape | null): Harness => {
     isDev: false,
     trustedOrigins: [],
     defaultLocale: "en",
+    resolveLocale: (acceptLanguage: string | null): string =>
+      resolveLocale(
+        { defaultLocale: "en", messagesByLocale: { en: {}, ne: {} } },
+        undefined,
+        acceptLanguage,
+      ),
     translatorFor: (locale: string): Translator => {
       translatorCalls.push(locale);
       return translator;
@@ -91,7 +98,9 @@ describe("createTRPCContext", () => {
     expect(ctx.session).toEqual({ userId: "user-1", activeBranchId: "branch-1" });
     expect(ctx.requestedBranchId).toBe("branch-1");
     expect(ctx.ip).toBe("203.0.113.9");
-    expect(harness.translatorCalls).toEqual(["fr"]);
+    // fr is unsupported; proper negotiation walks the chain to the first
+    // SUPPORTED tag (en) instead of blindly taking the first tag.
+    expect(harness.translatorCalls).toEqual(["en"]);
     expect(harness.childBindings).toEqual([{ requestId: ctx.requestId, userId: "user-1" }]);
   });
 
@@ -102,7 +111,8 @@ describe("createTRPCContext", () => {
     });
     const ctx = await createTRPCContext(req, harness.deps);
     expect(ctx.session).toEqual({ userId: "user-2", activeBranchId: null });
-    expect(harness.translatorCalls).toEqual(["de"]);
+    // de is not in the catalog: negotiation falls back to the default locale.
+    expect(harness.translatorCalls).toEqual(["en"]);
   });
 });
 
@@ -112,8 +122,12 @@ const makeZodError = (): z.ZodError => {
   return parsed.error;
 };
 
-const makeShape = (): PosErrorShape => ({
-  message: "errors.internal",
+// tRPC hands the formatter its DEFAULT shape; the POS fields are what the
+// formatter ADDS.
+const LEAKY = "pg: password authentication failed for user pos_app";
+
+const makeShape = (message = LEAKY): TRPCDefaultErrorShape => ({
+  message,
   code: -32603,
   data: {
     code: "INTERNAL_SERVER_ERROR",
@@ -129,9 +143,9 @@ const formatterCtx = (isDev: boolean): PosTrpcContext =>
 describe("posErrorFormatter", () => {
   it("flattens a ZodError cause and strips the stack outside dev", () => {
     const zodError = makeZodError();
-    const error = new TRPCError({ code: "BAD_REQUEST", cause: zodError });
+    const error = new TRPCError({ code: "UNPROCESSABLE_CONTENT", cause: zodError });
     const result = posErrorFormatter({ shape: makeShape(), error, ctx: formatterCtx(false) });
-    expect(result.message).toBe("errors.internal");
+    expect(result.message).toBe(LEAKY); // a 422 keeps its (already safe) message
     expect(result.code).toBe(-32603);
     expect(result.data.zod).toEqual(z.flattenError(zodError));
     expect(result.data.appCode).toBeNull();
@@ -151,6 +165,28 @@ describe("posErrorFormatter", () => {
     const error = new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const result = posErrorFormatter({ shape: makeShape(), error, ctx: formatterCtx(true) });
     expect(result.data.stack).toBe("secret-stack");
+  });
+
+  it("COLLAPSES an internal message outside dev, and keeps it in dev", async () => {
+    const error = new TRPCError({ code: "INTERNAL_SERVER_ERROR", cause: new Error(LEAKY) });
+    const prod = posErrorFormatter({ shape: makeShape(), error, ctx: formatterCtx(false) });
+    // tRPC copies cause.message onto the shape; shipping it would hand the
+    // client a database credential error verbatim.
+    expect(prod.message).toBe("errors.internal");
+    expect(prod.message).not.toContain("password");
+
+    const dev = posErrorFormatter({ shape: makeShape(), error, ctx: formatterCtx(true) });
+    expect(dev.message).toBe(LEAKY);
+    await Promise.resolve();
+  });
+
+  it("never ships OUTPUT-schema issues: only input validation may surface zod", () => {
+    // An output-schema failure arrives as INTERNAL_SERVER_ERROR with a ZodError
+    // cause; flattening it would leak the internal DTO's field paths.
+    const error = new TRPCError({ code: "INTERNAL_SERVER_ERROR", cause: makeZodError() });
+    const result = posErrorFormatter({ shape: makeShape(), error, ctx: formatterCtx(false) });
+    expect(result.data.zod).toBeNull();
+    expect(result.message).toBe("errors.internal");
   });
 
   it("returns nulls for a plain error without ctx", () => {

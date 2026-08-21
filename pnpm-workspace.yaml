@@ -23,12 +23,11 @@ catalog:
   drizzle-kit: 0.31.10
   drizzle-orm: 0.45.2
   drizzle-zod: 0.8.3
-  i18next: 26.4.0
+  next-intl: 4.13.7
   ioredis: 6.0.0
   nodemailer: 9.0.5
   pg: 8.23.0
   pino: 10.3.1
-  react-i18next: 17.0.12
   superjson: 2.2.6
   trpc-to-openapi: 3.3.0
   zod: 4.4.3
@@ -84,12 +83,15 @@ catalog:
 
 minimumReleaseAgeExclude:
   - "@vitejs/plugin-react@6.1.0"
-  - i18next@26.4.0
-  - react-i18next@17.0.12
+  - next-intl@4.13.7
   - "@vercel/cli-config@0.2.4"
   - "@vercel/functions@3.9.5"
   - "@vercel/oidc@3.8.5"
 
 allowBuilds:
+  # next-intl hard-depends on its experimental extractor's native toolchain;
+  # we never run the extractor, so these postinstall builds stay OFF.
+  "@parcel/watcher": false
+  "@swc/core": false
   esbuild: true
   unrs-resolver: true

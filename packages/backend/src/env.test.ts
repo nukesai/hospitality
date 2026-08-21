@@ -36,6 +36,7 @@ describe("parseEnv", () => {
       ANALYTICS_DRIVER: "noop",
       API_MAX_BODY_BYTES: 1_048_576,
       DEFAULT_LOCALE: "en",
+      POS_API_BASE_PATH: "/api/pos",
     });
     expect(env.MIGRATE_DATABASE_URL).toBeUndefined();
     expect(env.CACHE_URL).toBeUndefined();
@@ -185,6 +186,19 @@ describe("parseEnv", () => {
     expect(message).toContain("DATABASE_URL");
     expect(message).toContain("BETTER_AUTH_SECRET");
     expect(message).toContain("BETTER_AUTH_URL");
+  });
+});
+
+describe("POS_API_BASE_PATH", () => {
+  it("accepts a custom absolute mount", () => {
+    expect(parseEnv(source({ POS_API_BASE_PATH: "/internal/pos" })).POS_API_BASE_PATH).toBe(
+      "/internal/pos",
+    );
+  });
+
+  it("rejects a relative path and a trailing slash", () => {
+    expect(() => parseEnv(source({ POS_API_BASE_PATH: "api/pos" }))).toThrow('must start with "/"');
+    expect(() => parseEnv(source({ POS_API_BASE_PATH: "/api/pos/" }))).toThrow('not end with "/"');
   });
 });
 

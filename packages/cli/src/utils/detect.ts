@@ -11,8 +11,8 @@ export interface ProjectInfo {
   /** True when routes live under src/app rather than app. */
   readonly isSrcDir: boolean;
   readonly isTypeScript: boolean;
-  /** Absolute path to next.config.{js,mjs,ts}, or null when absent. */
-  readonly nextConfigPath: string | null;
+  /** Absolute path to next.config.{js,mjs,ts} (detect throws when absent). */
+  readonly nextConfigPath: string;
   readonly nextVersion: string | null;
   /** Import alias prefix from tsconfig paths, e.g. "@" for "@/*". */
   readonly aliasPrefix: string | null;
