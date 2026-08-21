@@ -185,6 +185,13 @@ apart. A request that reaches the dispatcher on a path it does not own gets a
 404 carrying an `x-pos-api` marker header — the signal that the route file is
 mounted somewhere the base path does not expect.
 
+The docs page is unauthenticated and loads its renderer from a third-party CDN
+into the app's own origin, so publishing it in production is an explicit
+decision (`surfaces: { docs: true }`, ideally with a pinned `docs.cdn`). The
+`/auth/*` branch is the only surface reachable before a session exists, so the
+dispatcher applies the body-size cap there itself — better-auth checks origins
+but imposes no limit of its own.
+
 ### Request lifecycle (tRPC)
 
 ```
@@ -273,3 +280,164 @@ Every package's `exports` map is hand-written and reviewed; `tsdown` runs with
 The three primary consumer entries are `backend/bootstrap` (`getPos`),
 `backend/next` (`createPosApi`), and `backend/trpc` (`posCoreRouter` and the
 procedure ladder), plus `frontend/server` for the UI.
+
+## Build and packaging
+
+```
+src/**/*.ts(x)  →  tsdown (rolldown)  →  dist/**  →  publint + attw  →  npm (restricted)
+```
+
+Four decisions shape everything downstream:
+
+**`unbundle: true`.** Every module is its own entry, so `dist/` mirrors `src/`
+file-for-file. Bundled mode silently DROPS the `"use client"` directive, which
+would break every consumer's build in a way no type check catches. This is also
+what lets the hand-written exports maps point at stable deep paths.
+
+**dts via oxc, which requires `isolatedDeclarations`.** Type declarations are
+generated per file without a type-checker, so every exported symbol needs an
+explicit type annotation. This is why the package annotates things that look
+inferable — including the tRPC root, the procedure builders and the built
+routers. (TypeScript 7 has no `tsc`-based dts alternative here; see
+`.nukes/RESEARCH.md`.)
+
+**Hand-written `exports` maps.** No wildcard auto-export. A new public entry
+point is a deliberate act with three companions: a size-limit budget, tests,
+and a changeset. `publint` and `attw` run inside `pnpm build`, so a malformed
+map or a types/runtime mismatch fails the build, not the consumer.
+
+**Fixed-version changesets.** All four packages version together
+(`.changeset/config.json` → `fixed`), so a consumer can never end up with a
+frontend that expects a backend it does not have. `release.yml` re-runs the
+quality gates, then either opens the version PR or publishes with
+`--access restricted`.
+
+## The gate system
+
+Every gate below runs in CI (`.github/workflows/ci.yml`) and can be run
+locally with the same command. They are not advisory.
+
+| Gate                  | Command                 | Protects                                                        | Configured in                                 |
+| --------------------- | ----------------------- | --------------------------------------------------------------- | --------------------------------------------- |
+| Formatting            | `pnpm format:check`     | reviewable diffs                                                | `.prettierrc` + lint-staged                   |
+| Catalog policy        | `pnpm syncpack:lint`    | one version per dependency, repo-wide                           | `.syncpackrc` + `pnpm-workspace.yaml` catalog |
+| Lint + boundary zones | `pnpm lint`             | layering, server/client zones, the i18n framework ban           | `packages/eslint-config/`                     |
+| Types                 | `pnpm check-types`      | TS7 (`tsgo`) correctness, `isolatedDeclarations`                | `packages/typescript-config/`                 |
+| Build                 | `pnpm build`            | dts emit, `"use client"` preservation, publint + attw packaging | each `tsdown.config.ts`                       |
+| Unit tests + coverage | `pnpm test`             | behavior, and 100% per-file coverage                            | `vitest.config.ts`                            |
+| Coverage canary       | `pnpm coverage:canary`  | that the coverage gate can actually fail                        | `scripts/assert-coverage-gate-fails.mjs`      |
+| Size budgets          | `pnpm size`             | per-subpath gzip cost and tree-shaking                          | `.size-limit.json` (12 entries)               |
+| Dead code             | `pnpm knip`             | unused files, deps and exports                                  | `knip.json`                                   |
+| End-to-end            | `E2E_STACK=1 pnpm e2e`  | the real production build against the real stack                | `playwright.config.ts`                        |
+| Live integration      | `pnpm test:integration` | RLS contracts against Postgres (opt-in)                         | `vitest.integration.config.ts`                |
+
+Two of these deserve explanation because they look like over-engineering and
+are not:
+
+**The 100% coverage gate is honest by construction.** `coverage.include` is an
+explicit glob (`packages/*/src/**`), so a file with no test at all is counted
+rather than invisible, thresholds are `perFile`, and the canary proves in CI
+that an untested line really does fail the build. Never widen `coverage.exclude`
+to make a number go green — write the test.
+
+**The dist boundary test is the real isolation gate.** `pnpm build` runs before
+tests because `packages/frontend/test/boundary.dist.test.ts` inspects the built
+output: it derives the set of `"use client"` leaves from the SOURCES and asserts
+each survived bundling, that no barrel carries the directive, and that no client
+chunk imports `server-only` or a node builtin.
+
+## Extension recipes
+
+These are the paths a change actually takes through this repo. Follow the
+existing implementation named in each recipe as the template — it is the
+reference implementation, not an example.
+
+### Add a backend feature (the `orders` template)
+
+1. **Schema + RLS** — `packages/backend/src/adapters/drizzle/schema/<entity>.ts`:
+   table with the branch column, the four `branchGuard()` policies, and a
+   branch-leading index. Export it from `schema/index.ts`.
+2. **Migration** — `pnpm db:generate`, review the SQL, `pnpm db:migrate`.
+3. **Service** — `packages/backend/src/trpc/services/<entity>.ts`: pure logic
+   over ports. Every zod schema is annotated `z.ZodType<Output, Input>` (the
+   single-parameter form silently widens client inputs to `unknown`) and every
+   input/output interface is exported so the router can name it.
+4. **Router** — add to `packages/backend/src/trpc/routers.ts`: a
+   `TRPCBuiltRouter<PosRootTypes, {...}>` type annotation plus the built router.
+   Mutations declare `meta.cacheInvalidates`. Compose it into `posCoreRouter`.
+5. **Tests** — caller-based tests in `routers.test.ts` covering success, the
+   guard failures, and the cache-discipline canary. Coverage must stay at 100%.
+6. **CLI registry** — add the feature to `POS_FEATURES` in
+   `packages/cli/src/templates/plan.ts` so `nukes-pos add <name>` can wire it.
+7. **Changeset** — `pnpm changeset` (fixed version group; one per user-visible
+   change).
+
+Consumers get the new router by bumping the package version. They map nothing.
+
+### Add a translated string
+
+1. Add the FLAT dotted key to `packages/common/src/i18n/locales/en.ts` and
+   `ne.ts` (both, or the type gate fails). Single-brace `{name}` placeholders.
+2. Use it: backend `ctx.t("your.key")`, RSC
+   `getTranslations({ locale, namespace: "pos" })`, client
+   `useTranslations("pos")`. Nothing else to register — the nested tree and the
+   consumer-facing types derive from the catalog.
+
+### Add a UI surface
+
+- **RSC**: `packages/frontend/src/server/<name>.tsx`, exported from the server
+  barrel. It may import backend types; it may not import a client leaf's
+  internals.
+- **Client leaf**: `"use client"` on the LEAF file, never on a barrel; export
+  it from `packages/frontend/src/client/index.ts`.
+- A leaf that both graphs need lives in the NEUTRAL `src/i18n/` zone —
+  `provider.tsx` is the precedent, and `test/boundary.dist.test.ts` derives the
+  guarded leaf set from the sources, so a new one is covered automatically.
+
+### Add a public export
+
+The exports map is hand-written on purpose. All four steps or none:
+
+1. subpath in the package's `exports` map (and the barrel it points at),
+2. an entry in `.size-limit.json` with a budget,
+3. tests keeping per-file coverage at 100%,
+4. a changeset.
+
+### Change a consumer-facing scaffold file
+
+Consumer templates are GENERATED from `apps/example`. Edit the example, run
+`node scripts/sync-cli-templates.mjs`, and commit both — `templates.test.ts`
+fails on byte drift. The example app IS the CLI's output.
+
+## Invariants worth knowing before you change anything
+
+These are the ones that fail silently — the code compiles, the tests pass, and
+something is quietly wrong. Each is enforced somewhere; the enforcement is
+named so you can find it.
+
+| Invariant                                                                   | Why it bites                                                                                                                               | Enforced by                                                                                |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| zod schemas are `z.ZodType<Output, Input>` — **both** parameters            | the single-parameter form leaves `Input` as `unknown` and silently widens every tRPC client input                                          | compile contract in `backend/src/trpc/routers.test.ts`                                     |
+| `PosErrorShape.code` stays tRPC's literal union                             | widening to `number` fails tRPC's constraint and the client silently falls back to `DefaultErrorShape`, losing `zod`/`appCode`/`requestId` | same contract                                                                              |
+| cache invalidation middleware sits AFTER the branch guard                   | it reads the branch the guard attaches; earlier means invalidation silently never runs                                                     | `trpc/root.ts` ordering + the canary test                                                  |
+| every mutation declares `meta.cacheInvalidates`                             | a missed invalidation serves stale data forever                                                                                            | `enforceCacheMeta` throws on the packaged root                                             |
+| an `onError` reporter never throws                                          | use-intl calls it from inside its own catch and then returns a fallback, so throwing turns a degraded string into a 500                    | `i18n/fallback.ts` + its tests                                                             |
+| the locale cascade stays lazy, and `PosIntl` gets the locale in routed apps | any header read opts the whole page tree out of static rendering                                                                           | `server/i18n.ts` suppliers; `intl.tsx` primes the request cache                            |
+| message trees are built with `Object.hasOwn` + `defineProperty`             | catalogs arrive as vendor JSON where `__proto__` is an ordinary key                                                                        | `i18n/safe-object.ts`                                                                      |
+| `"use client"` never on a barrel; `unbundle: true` never off                | the directive is silently dropped and every consumer's build breaks                                                                        | `boundary.dist.test.ts` in both packages                                                   |
+| ambient `process.env` only in `bootstrap/singleton.ts`                      | env drift between modules is invisible until production                                                                                    | lint zone + review                                                                         |
+| ESLint blocks must MERGE `no-restricted-imports`, never restate it          | flat config replaces rule options wholesale, so a later block silently deletes an earlier ban and nothing fails                            | `scripts/assert-lint-bans.mjs`                                                             |
+| the CLI fails loudly, never partially                                       | it writes into customer repositories                                                                                                       | `init` validates the next.config before writing; `spliceRouters` refuses malformed markers |
+| the manifest ledger has one owner per entry                                 | `init`/`upgrade` own plan paths, `add` owns the extension file; blurring it either blinds `doctor` or pins the old i18n mode forever       | `isExtensionFile` + the ledger tests                                                       |
+
+## Where to look
+
+| Question                                 | File                                                               |
+| ---------------------------------------- | ------------------------------------------------------------------ |
+| What are the rules?                      | [AGENTS.md](./AGENTS.md)                                           |
+| What may import what, exactly?           | [docs/architecture/isolation.md](./docs/architecture/isolation.md) |
+| Why is the toolchain this way?           | `.nukes/RESEARCH.md`                                               |
+| Why is the backend this way?             | `.nukes/RESEARCH-BACKEND.md`                                       |
+| Why is the integration surface this way? | `.nukes/RESEARCH-INTEGRATION.md`                                   |
+| What happened in past sessions?          | `.nukes/PROGRESS.md`                                               |
+| How do I consume this as an app?         | [README.md](./README.md)                                           |

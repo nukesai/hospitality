@@ -18,6 +18,10 @@ multi-tenant SaaS.** Feature inspiration: PRODUCT.md.
 
 ## 2. Architecture — the non-negotiables
 
+> [ARCHITECTURE.md](./ARCHITECTURE.md) is the map: package roles, directory
+> layout, request lifecycle, extension recipes. This section is the LAW. When
+> the two disagree, this file wins and ARCHITECTURE.md is the bug.
+
 ### Layering (lint-enforced)
 
 ```
@@ -75,16 +79,17 @@ business logic — inject the port.
 
 ## 4. Quality gates (all blocking, all in CI)
 
-| Gate      | Command                | Contract                                                                                              |
-| --------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| Types     | `pnpm check-types`     | TS 7 `tsc --noEmit` is the authority                                                                  |
-| Lint      | `pnpm lint`            | typed rules + boundary zones; zero warnings tolerated                                                 |
-| Unit      | `pnpm test`            | 100% statements/branches/functions/lines, perFile, root-only coverage                                 |
-| Canary    | `pnpm coverage:canary` | proves the gate can fail                                                                              |
-| E2E       | `pnpm e2e`             | production `next start` of apps/example on :3100                                                      |
-| Size      | `pnpm size`            | per-export gzip budgets = the Lighthouse guard; raising a budget requires a dedicated reviewed commit |
-| Dead code | `pnpm knip`            | no unused files/deps/exports                                                                          |
-| Format    | `pnpm format:check`    | prettier owns ALL formatting                                                                          |
+| Gate      | Command                | Contract                                                                                                                                |
+| --------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Types     | `pnpm check-types`     | TS 7 `tsc --noEmit` is the authority                                                                                                    |
+| Lint      | `pnpm lint`            | typed rules + boundary zones; zero warnings tolerated                                                                                   |
+| Lint bans | `pnpm lint:bans`       | proves the boundary bans survive into the EFFECTIVE config (flat config replaces rule options wholesale, and a deleted ban never fires) |
+| Unit      | `pnpm test`            | 100% statements/branches/functions/lines, perFile, root-only coverage                                                                   |
+| Canary    | `pnpm coverage:canary` | proves the gate can fail                                                                                                                |
+| E2E       | `pnpm e2e`             | production `next start` of apps/example on :3100                                                                                        |
+| Size      | `pnpm size`            | per-export gzip budgets = the Lighthouse guard; raising a budget requires a dedicated reviewed commit                                   |
+| Dead code | `pnpm knip`            | no unused files/deps/exports                                                                                                            |
+| Format    | `pnpm format:check`    | prettier owns ALL formatting                                                                                                            |
 
 Coverage rules: `coverage` config exists ONLY in the root `vitest.config.ts`
 (project-level coverage is silently ignored by Vitest 4). Never lower a
@@ -141,8 +146,9 @@ ships.
   annotations stay in sync with their implementations (assignment-checked, no
   casts). The consumer route file consumes `posCoreRouter`; app-local
   procedures use the OPTIONAL extension file `nukes-pos add` scaffolds
-  (marker-managed `server/routers/_app.ts`, merged via
-  `posTrpc.mergeRouters` on the same root instance).
+  (marker-managed `server/routers/_app.ts`, composed with `posTrpc.router()` on
+  the same root instance — namespaced, not merged; `posTrpc.mergeRouters` is
+  available for apps that want the flat shape instead).
 - **`PosErrorShape.code` stays `TRPC_ERROR_CODE_NUMBER`** — the same class of
   bug as the zod rule above: widening it to `number` fails tRPC's
   `TShape extends TRPCErrorShape` constraint, initTRPC silently falls back to
@@ -175,6 +181,17 @@ ships.
   `createPosRequestConfig` (the next-intl plugin demands an app-local relative
   file); `PosIntl` in the root layout; optional routed mode = `proxy.ts` +
   `[locale]` tree (`nukes-pos init --i18n-routing`).
+- **The API's docs surfaces are development-only unless asked.** `/docs` is
+  unauthenticated and Scalar loads its renderer from a third-party CDN into the
+  app's own origin; `openapi.json` publishes the whole contract. Both default
+  to `NODE_ENV !== "production"` — publishing them is an explicit
+  `surfaces: { docs: true }`, ideally with a pinned `docs.cdn`. `/auth/*` is the
+  only pre-session surface, so the dispatcher applies the body cap there itself.
+- **`PosIntl` must receive the locale in routed apps.** It primes next-intl's
+  request cache; without it every locale-less server API reads request headers
+  and the whole page tree drops out of static rendering (measured: `f /[locale]`
+  vs `● /en`). Falsy locales take the inherit path — next-intl throws on any
+  falsy value and its production build strips the message to `undefined`.
 - **An `onError` reporter NEVER throws** — use-intl calls it from inside its
   own catch blocks and then returns a fallback, so a throw converts a degraded
   string into a 500 (and `relativeTime` re-enters `onError`, whose second throw
@@ -207,6 +224,21 @@ ships.
 - **The manifest ledger is APPEND-ONLY across commands**: `init` and `upgrade`
   union what `add` recorded (the extension file and its features) — dropping an
   entry blinds `doctor` to a file that is still on disk.
+- **ESLint blocks MERGE `no-restricted-imports`, never restate it.** Flat
+  config replaces rule options wholesale, so a second block targeting the same
+  files silently deletes the bans declared before it — and a deleted ban simply
+  never fires, so nothing goes red. Use `withI18nFrameworkBan` (or restate every
+  pattern) and keep `pnpm lint:bans` green; it asserts the EFFECTIVE config.
+- **Registry lookups use `Object.hasOwn`, never `in`.** `in` walks the
+  prototype chain, so `nukes-pos add constructor` passed validation and spliced
+  `Object: undefined,` into a customer's router file (verified).
+- **Scaffolded layouts are NESTED.** The consumer already owns
+  `app/layout.tsx`; a template that emits `<html>`/`<body>` (or someone else's
+  `<title>`) nests a second document inside theirs.
+- **A boot that dies half-built tears itself down.** `getPos()` retries a failed
+  boot, so `createNukesPos` must close what it created — otherwise each retry
+  strands another `pg.Pool`. Failures are remembered for a cooldown so an
+  outage cannot turn every request into a fresh boot.
 - **Dependency injection respects EVERY package.json section** — an entry in
   devDependencies/peerDependencies still wins resolution for the consumer.
 - **Route templates never export `dynamic`/`runtime` segment configs** —

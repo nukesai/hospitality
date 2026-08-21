@@ -55,6 +55,9 @@ jobs:
       - name: Lint
         run: pnpm turbo run lint
 
+      - name: Prove the boundary bans survive into the effective config
+        run: pnpm lint:bans
+
       - name: Typecheck (TypeScript 7)
         run: pnpm turbo run check-types
 

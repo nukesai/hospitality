@@ -21,6 +21,7 @@
     "format:check": "prettier --check .",
     "knip": "knip",
     "lint": "turbo run lint",
+    "lint:bans": "node scripts/assert-lint-bans.mjs",
     "prepare": "husky",
     "release": "turbo run build && pnpm publish -r --no-git-checks --access restricted --report-summary",
     "size": "size-limit",

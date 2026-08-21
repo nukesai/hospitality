@@ -106,6 +106,35 @@ plus 4 that verification could not reach; all were fixed and pinned by tests:
   knip, 12 size budgets, syncpack, format, coverage canary all green · CLI
   init/add/doctor/re-init exercised live in a throwaway app.
 
+### Session 3c — second review pass + ARCHITECTURE.md (2026-08-21) ✅
+
+Six specialist reviewers plus an adversarial pass over the FIX commits (every
+finding reproduced by execution against the installed dists). What it caught:
+
+- **Every routed page was rendering dynamically.** The locale cascade always
+  reached next-intl's header read, so `generateStaticParams` prerendered
+  nothing. `PosIntl` now primes the request cache — measured `f /[locale]` →
+  `● /en`, `● /ne`.
+- **The Scalar docs page shipped on by default**: unauthenticated, pulling its
+  renderer from an unpinned CDN into the app's own origin. Now dev-only.
+- **The i18n lint ban had silently deleted the leaf-import ban** (flat config
+  replaces rule options wholesale) and was itself inert in backend. Both proven
+  with `--print-config`; `pnpm lint:bans` now asserts the effective config.
+- **`nukes-pos add constructor` corrupted the customer's router file** (`in`
+  walks the prototype chain), and the routed scaffold wrote the fixture's ROOT
+  layout into apps that already have one.
+- **The fixes' own regressions**: the rejected-boot eviction turned a one-time
+  pool leak into a per-retry leak; the ledger union made i18n-mode switches
+  irreversible; `patchNextConfig` stripped `satisfies NextConfig`. All closed.
+- An output-schema failure could leak the internal DTO shape in a 500; `/auth/*`
+  had no body cap.
+- **ARCHITECTURE.md** now carries the package roles, directory map, request
+  lifecycle, extension recipes and the silent-failure invariant index;
+  AGENTS.md and CLAUDE.md point at it and carry the new rules.
+
+**Proof**: 621 unit tests 100/100/100/100 · 45 e2e on the live stack · lint,
+lint:bans, knip, 12 size budgets, syncpack, format, canary green.
+
 ## Next
 
 Feature phases on the finished rails: orders lifecycle UI in PosAdminShell,

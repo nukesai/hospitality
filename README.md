@@ -64,6 +64,8 @@ pnpm knip           # dead files/deps/exports
 Read these before touching code:
 
 - [AGENTS.md](./AGENTS.md) — the rules of this repo (humans and AI agents)
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — what each package owns, the directory
+  map, the request lifecycle, and how to extend any of it
 - [docs/architecture/isolation.md](./docs/architecture/isolation.md) — the SSR/CSR isolation contract
 - [.nukes/RESEARCH.md](./.nukes/RESEARCH.md) — the verified decision record behind every toolchain choice
 
