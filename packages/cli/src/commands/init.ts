@@ -1,7 +1,3 @@
-import path from "node:path";
-import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
-
 import { detectProject, type ProjectInfo } from "../utils/detect.js";
 import { assertCleanWorktree } from "../utils/git.js";
 import { injectConsumerDependencies } from "../utils/deps.js";
@@ -32,15 +28,6 @@ export interface InitReport {
   readonly nextConfigPatched: boolean;
   readonly envExampleTouched: boolean;
 }
-
-const NPMRC_SCOPE_LINE = "@nukesai-pos:registry=https://registry.npmjs.org/";
-const NPMRC_TEMPLATE = `# Authentication for @nukesai-pos restricted packages.
-# Set NPM_TOKEN in your shell / CI secrets to a granular access token with
-# READ-ONLY access to the @nukesai-pos scope. The literal \${NPM_TOKEN} below is
-# expanded by npm/pnpm at read time and must NOT be replaced with the token.
-${NPMRC_SCOPE_LINE}
-//registry.npmjs.org/:_authToken=\${NPM_TOKEN}
-`;
 
 /**
  * THE assembler: scaffolds the complete Nukes POS integration into an existing
@@ -77,36 +64,21 @@ export async function runInit(options: InitOptions): Promise<InitReport> {
     features,
   });
 
-  // 1. Registry auth for the restricted scope (idempotent append).
-  const npmrcPath = path.resolve(cwd, ".npmrc");
-  if (existsSync(npmrcPath)) {
-    const existing = await readFile(npmrcPath, "utf8");
-    if (existing.includes(NPMRC_SCOPE_LINE)) {
-      results.push({ path: ".npmrc", outcome: "skipped" });
-    } else {
-      if (!dryRun) await writeFile(npmrcPath, `${existing.trimEnd()}\n\n${NPMRC_TEMPLATE}`);
-      results.push({ path: ".npmrc", outcome: "updated" });
-    }
-  } else {
-    if (!dryRun) await writeFile(npmrcPath, NPMRC_TEMPLATE);
-    results.push({ path: ".npmrc", outcome: "created" });
-  }
-
-  // 2. Dependencies (consumer package.json; existing entries win).
+  // 1. Dependencies (consumer package.json; existing entries win).
   const deps = await injectConsumerDependencies(cwd, version, dryRun);
 
-  // 3. The scaffold itself.
+  // 2. The scaffold itself.
   for (const file of plan) {
     results.push(await writeGenerated(cwd, file.path, file.body, dryRun));
   }
 
-  // 4. next.config wrapped in withNukesPos (magicast, format-preserving).
+  // 3. next.config wrapped in withNukesPos (magicast, format-preserving).
   const nextConfigPatched = await patchNextConfig(project.nextConfigPath, dryRun);
 
-  // 5. Env template.
+  // 4. Env template.
   const envExampleTouched = await ensureEnvExample(cwd, dryRun);
 
-  // 6. Manifest LAST — the ledger records what actually landed.
+  // 5. Manifest LAST — the ledger records what actually landed.
   const previous = await readManifest(cwd);
   const manifest = {
     ...(previous ?? createManifest(version)),

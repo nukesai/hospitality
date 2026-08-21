@@ -147,7 +147,7 @@ nothing, because `posCoreRouter` already contains it.
 The CLI is what puts these files there:
 
 ```
-nukes-pos init      scaffold everything above (+ deps, .npmrc, .env.example,
+nukes-pos init      scaffold everything above (+ deps, .env.example,
                     next.config wrapper), ledgered in nukes-pos.json
 nukes-pos add       create/maintain server/routers/_app.ts for app-local procedures
 nukes-pos doctor    read-only diagnosis: stamps, markers, env, version drift
@@ -284,7 +284,7 @@ procedure ladder), plus `frontend/server` for the UI.
 ## Build and packaging
 
 ```
-src/**/*.ts(x)  →  tsdown (rolldown)  →  dist/**  →  publint + attw  →  npm (restricted)
+src/**/*.ts(x)  →  tsdown (rolldown)  →  dist/**  →  publint + attw  →  npm (public)
 ```
 
 Four decisions shape everything downstream:
@@ -310,7 +310,8 @@ map or a types/runtime mismatch fails the build, not the consumer.
 (`.changeset/config.json` → `fixed`), so a consumer can never end up with a
 frontend that expects a backend it does not have. `release.yml` re-runs the
 quality gates, then either opens the version PR or publishes with
-`--access restricted`.
+`--access public`. Consumers need no registry credentials, which is why the
+CLI scaffolds no `.npmrc`.
 
 ## The gate system
 

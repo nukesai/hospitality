@@ -112,7 +112,7 @@
     "node": ">=20.19.0"
   },
   "publishConfig": {
-    "access": "restricted",
+    "access": "public",
     "provenance": false,
     "registry": "https://registry.npmjs.org/",
     "tag": "latest"

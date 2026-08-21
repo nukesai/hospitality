@@ -13,7 +13,7 @@ This file adds only Claude-specific workflow notes.
 ## Quick orientation
 
 Package factory: `@nukesai-pos/{common,backend,frontend,cli}` published as
-restricted npm packages, scaffolded into consumer Next.js 16 apps by the CLI.
+public npm packages, scaffolded into consumer Next.js 16 apps by the CLI.
 Flat DB, per-location isolation, NOT multi-tenant. `apps/example` is the CLI's
 output — a real consumer app, built and E2E-tested on every commit, and the
 byte-source of the scaffold templates.

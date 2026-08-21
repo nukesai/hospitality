@@ -44,7 +44,6 @@ describe("runDoctor", () => {
       expect.arrayContaining([
         expect.stringContaining("withNukesPos"),
         expect.stringContaining("nukes-pos.json"),
-        expect.stringContaining(".npmrc"),
       ]),
     );
   });
@@ -87,7 +86,6 @@ describe("runDoctor", () => {
     await writeFile(path.join(js, "next.config.mjs"), "export default {};\n");
     await mkdir(path.join(js, "app"), { recursive: true });
     await writeFile(path.join(js, "package.json"), "{}");
-    await writeFile(path.join(js, ".npmrc"), "registry=https://registry.npmjs.org/\n");
     const jsReport = await runDoctor({ cwd: js });
     expect(jsReport.warnings).toEqual(
       expect.arrayContaining([
@@ -96,7 +94,7 @@ describe("runDoctor", () => {
       ]),
     );
     expect(jsReport.errors).toEqual(
-      expect.arrayContaining([expect.stringContaining("no @nukesai-pos registry entry")]),
+      expect.arrayContaining([expect.stringContaining("not wrapped in withNukesPos()")]),
     );
   });
 

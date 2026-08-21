@@ -23,7 +23,7 @@
     "lint": "turbo run lint",
     "lint:bans": "node scripts/assert-lint-bans.mjs",
     "prepare": "husky",
-    "release": "turbo run build && pnpm publish -r --no-git-checks --access restricted --report-summary",
+    "release": "turbo run build && pnpm publish -r --no-git-checks --access public --report-summary",
     "size": "size-limit",
     "stack:down": "docker compose -f docker/compose.yaml down",
     "stack:nuke": "docker compose -f docker/compose.yaml down -v",
