@@ -1,6 +1,6 @@
 {
   "name": "@nukesai-pos/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": false,
   "description": "Scaffold Nukes POS into an existing Next.js 16 application.",
   "keywords": [
