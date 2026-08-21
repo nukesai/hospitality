@@ -1,3 +1,4 @@
+import { assertCleanWorktree } from "../utils/git.js";
 import { readManifest, writeManifest } from "../utils/manifest.js";
 import { writeGenerated, type WriteOutcome } from "../utils/generated.js";
 import { planFiles } from "../templates/plan.js";
@@ -6,6 +7,8 @@ export interface UpgradeOptions {
   readonly cwd: string;
   readonly dryRun: boolean;
   readonly version: string;
+  /** Proceed on a dirty worktree (same contract as init/add). */
+  readonly force?: boolean;
 }
 
 export interface UpgradeReport {
@@ -20,6 +23,11 @@ export interface UpgradeReport {
  * them (never clobbered), and the manifest records the new version.
  */
 export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport> {
+  // Upgrade rewrites the LARGEST set of files of any command; the guard the
+  // other mutating commands enforce matters most here, so the version bump
+  // lands as its own reviewable diff.
+  assertCleanWorktree(options.cwd, options.force === true || options.dryRun);
+
   const manifest = await readManifest(options.cwd);
   if (manifest === null) {
     throw new Error("No nukes-pos.json found. Run `nukes-pos init` first.");

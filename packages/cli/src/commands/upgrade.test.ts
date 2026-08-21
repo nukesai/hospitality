@@ -20,6 +20,13 @@ const makeApp = async (): Promise<string> => {
 };
 
 describe("runUpgrade", () => {
+  it("refuses to rewrite files in a worktree it cannot review (no --force)", async () => {
+    const cwd = await makeApp();
+    await expect(runUpgrade({ cwd, dryRun: false, version: "0.1.0" })).rejects.toThrow(
+      "Not a git repository",
+    );
+  });
+
   it("requires an initialised app", async () => {
     const cwd = await mkdtemp(path.join(tmpdir(), "nukes-cli-upgrade-none-"));
     await expect(runUpgrade({ cwd, dryRun: true, version: "0.1.0" })).rejects.toThrow(
@@ -34,7 +41,7 @@ describe("runUpgrade", () => {
     const edited = path.join(cwd, "i18n/request.ts");
     await writeFile(edited, `${await readFile(edited, "utf8")}// my tweak\n`);
 
-    const report = await runUpgrade({ cwd, dryRun: false, version: "0.1.0" });
+    const report = await runUpgrade({ cwd, dryRun: false, force: true, version: "0.1.0" });
     expect(report.fromVersion).toBe("0.0.0");
     expect(report.toVersion).toBe("0.1.0");
 
@@ -59,7 +66,7 @@ describe("runUpgrade", () => {
       { cwd, dryRun: false, force: true },
       { kds: { name: "kds", routerExport: "kdsRouter" } },
     );
-    await runUpgrade({ cwd, dryRun: false, version: "0.1.0" });
+    await runUpgrade({ cwd, dryRun: false, force: true, version: "0.1.0" });
     const manifest = await readManifest(cwd);
     expect(manifest?.files).toContain("server/routers/_app.ts");
   });

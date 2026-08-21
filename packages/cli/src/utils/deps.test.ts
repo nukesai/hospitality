@@ -42,4 +42,25 @@ describe("injectConsumerDependencies", () => {
     };
     expect(pkg.dependencies).toBeUndefined();
   });
+
+  it("never shadows a package the consumer declared in devDependencies", async () => {
+    const cwd = await mkdtemp(path.join(tmpdir(), "nukes-cli-deps-dev-"));
+    await writeFile(
+      path.join(cwd, "package.json"),
+      JSON.stringify({ devDependencies: { zod: "^3.25.0" }, peerDependencies: { next: "^16" } }),
+    );
+
+    const report = await injectConsumerDependencies(cwd, "1.2.3", false);
+    expect(report.added).not.toContain("zod");
+    expect(report.kept).toContain("zod");
+
+    const pkg = JSON.parse(await readFile(path.join(cwd, "package.json"), "utf8")) as {
+      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
+    };
+    // A second, conflicting-major entry under dependencies would win
+    // resolution and break the consumer's own zod-3 code.
+    expect(pkg.dependencies.zod).toBeUndefined();
+    expect(pkg.devDependencies.zod).toBe("^3.25.0");
+  });
 });

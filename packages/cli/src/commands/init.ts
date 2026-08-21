@@ -61,6 +61,12 @@ export async function runInit(options: InitOptions): Promise<InitReport> {
   const project = await detectProject(cwd);
   assertCleanWorktree(cwd, force || dryRun);
 
+  // PREFLIGHT: the next.config wrapper is the one step that can refuse an app
+  // outright (CommonJS / non-wrappable default export). Validating it in
+  // dry-run mode BEFORE anything is written keeps a refusal from leaving a
+  // half-installed repo with no manifest to repair from.
+  await patchNextConfig(project.nextConfigPath, true);
+
   const results: WriteResult[] = [];
   const plan = planFiles({
     srcDir: project.isSrcDir,
@@ -102,8 +108,12 @@ export async function runInit(options: InitOptions): Promise<InitReport> {
   const manifest = {
     ...(previous ?? createManifest(version)),
     version,
-    features,
-    files: plan.map((file) => file.path),
+    // UNION, never replace: `add` records the extension file and its features
+    // in the same ledger, and init is a documented repair/idempotent flow —
+    // resetting the ledger would blind `doctor` to files that are still on
+    // disk (the same invariant runUpgrade keeps).
+    features: [...new Set([...features, ...(previous?.features ?? [])])],
+    files: [...new Set([...plan.map((file) => file.path), ...(previous?.files ?? [])])],
   };
   if (!dryRun) await writeManifest(cwd, manifest);
   results.push({

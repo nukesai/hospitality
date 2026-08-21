@@ -10,7 +10,8 @@ export interface DependencyReport {
 
 /**
  * Adds every dependency the scaffold needs to the consumer package.json.
- * Existing entries are NEVER touched (the consumer's resolution wins); the
+ * A package already declared in ANY dependency section is never touched (the
+ * consumer's resolution wins); the
  * three @nukesai-pos packages ride the CLI's version — the fixed version
  * group guarantees they exist at that version together.
  */
@@ -21,8 +22,22 @@ export async function injectConsumerDependencies(
 ): Promise<DependencyReport> {
   const manifestPath = path.resolve(cwd, "package.json");
   const raw = await readFile(manifestPath, "utf8");
-  const pkg = JSON.parse(raw) as { dependencies?: Record<string, string> };
+  const pkg = JSON.parse(raw) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+    optionalDependencies?: Record<string, string>;
+  };
   pkg.dependencies ??= {};
+  // "The consumer's resolution wins" means ANY section: an entry that only
+  // exists in devDependencies is still what their code resolves, so adding a
+  // second (different-major) entry under dependencies would silently switch it.
+  const declared = new Set([
+    ...Object.keys(pkg.dependencies),
+    ...Object.keys(pkg.devDependencies ?? {}),
+    ...Object.keys(pkg.peerDependencies ?? {}),
+    ...Object.keys(pkg.optionalDependencies ?? {}),
+  ]);
 
   const wanted: Record<string, string> = {
     "@nukesai-pos/backend": `^${cliVersion}`,
@@ -34,7 +49,7 @@ export async function injectConsumerDependencies(
   const added: string[] = [];
   const kept: string[] = [];
   for (const [name, version] of Object.entries(wanted)) {
-    if (pkg.dependencies[name] === undefined) {
+    if (!declared.has(name)) {
       pkg.dependencies[name] = version;
       added.push(name);
     } else {

@@ -44,6 +44,30 @@ describe("spliceRouters", () => {
     expect(spliced).toContain("  mine: myRouter,");
   });
 
+  it("refuses DUPLICATED marker blocks instead of emitting duplicate imports", () => {
+    // The shape a both-sides merge resolution leaves behind.
+    const block = [ROUTER_MARKERS.importsOpen, ROUTER_MARKERS.importsClose].join("\n");
+    const source = [
+      block,
+      block,
+      ROUTER_MARKERS.routersOpen,
+      `  ${ROUTER_MARKERS.routersClose}`,
+    ].join("\n");
+    expect(() => spliceRouters(source, ["orders"])).toThrow(/markers, expected one/);
+  });
+
+  it("refuses OUT-OF-ORDER markers instead of deleting the code between them", () => {
+    const source = [
+      ROUTER_MARKERS.importsOpen,
+      ROUTER_MARKERS.routersOpen,
+      "export const appRouter = posTrpc.router({",
+      "  mine: myRouter,",
+      `  ${ROUTER_MARKERS.routersClose}`,
+      ROUTER_MARKERS.importsClose,
+    ].join("\n");
+    expect(() => spliceRouters(source, ["orders"])).toThrow(/out of order/);
+  });
+
   it("keeps the core router when the last feature is removed", () => {
     const spliced = spliceRouters(
       [
@@ -144,5 +168,33 @@ describe("runAdd", () => {
     expect(await readFile(path.join(cwd, "src/server/routers/_app.ts"), "utf8")).toContain(
       "orders: ordersRouter,",
     );
+  });
+
+  it("materializes the extension file even when every feature is already wired", async () => {
+    // The default install has features=["orders"] and NO server/ dir, so this
+    // is the only path to app-local procedures — gating it on "a feature was
+    // added" made the documented flow unreachable.
+    const cwd = await mkdtemp(path.join(tmpdir(), "nukes-cli-add-ext-"));
+    await writeFile(path.join(cwd, "next.config.ts"), "export default {};\n");
+    await mkdir(path.join(cwd, "app"), { recursive: true });
+    await writeFile(path.join(cwd, "tsconfig.json"), "{}");
+    await writeFile(path.join(cwd, "package.json"), '{ "dependencies": { "next": "16.3.1" } }\n');
+    await runInit({ cwd, dryRun: false, force: true, version: "0.0.0" }); // default features
+
+    const report = await runAdd(["orders"], { cwd, ...OPTIONS });
+    expect(report).toMatchObject({
+      added: [],
+      alreadyPresent: ["orders"],
+      extensionFile: "server/routers/_app.ts",
+      extensionCreated: true,
+    });
+    const created = await readFile(path.join(cwd, "server/routers/_app.ts"), "utf8");
+    expect(created).toContain("  orders: ordersRouter,");
+    expect((await readManifest(cwd))?.files).toContain("server/routers/_app.ts");
+
+    // ...and a second run is a no-op splice, not a second creation.
+    const again = await runAdd([], { cwd, ...OPTIONS });
+    expect(again.extensionCreated).toBe(false);
+    expect(await readFile(path.join(cwd, "server/routers/_app.ts"), "utf8")).toBe(created);
   });
 });

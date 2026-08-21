@@ -77,4 +77,43 @@ describe("patchNextConfig", () => {
     expect(await patchNextConfig(configPath, true)).toBe(true);
     expect(await readFile(configPath, "utf8")).toBe(FRESH_TS);
   });
+
+  it("REFUSES a CommonJS config instead of appending ESM to it", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.js");
+    const source = "const nextConfig = { reactStrictMode: true };\nmodule.exports = nextConfig;\n";
+    await writeFile(configPath, source);
+
+    await expect(patchNextConfig(configPath, false)).rejects.toThrow(/CommonJS/);
+    // The customer's file is untouched — an ESM import spliced into a CJS
+    // config breaks every later `next build`.
+    expect(await readFile(configPath, "utf8")).toBe(source);
+  });
+
+  it("REFUSES a hoisted `export default function` config", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.mjs");
+    const source = "export default function cfg(phase) {\n  return { basePath: phase };\n}\n";
+    await writeFile(configPath, source);
+
+    await expect(patchNextConfig(configPath, false)).rejects.toThrow(/not wrappable/);
+    expect(await readFile(configPath, "utf8")).toBe(source);
+  });
+
+  it("wraps an arrow-function config (withNukesPos composes it, never spreads it)", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.mjs");
+    await writeFile(configPath, "export default (phase) => ({ basePath: phase });\n");
+
+    expect(await patchNextConfig(configPath, false)).toBe(true);
+    const patched = await readFile(configPath, "utf8");
+    expect(patched).toContain("withNukesPos(phase =>");
+  });
+
+  it("REFUSES a config with no default export at all", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.mjs");
+    await writeFile(configPath, "export const config = {};\n");
+    await expect(patchNextConfig(configPath, false)).rejects.toThrow(/not a config/);
+  });
 });

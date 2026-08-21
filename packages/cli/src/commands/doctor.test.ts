@@ -70,7 +70,7 @@ describe("runDoctor", () => {
     expect(report.errors).toEqual(
       expect.arrayContaining([
         expect.stringContaining("i18n/request.ts"),
-        expect.stringContaining("markers"),
+        expect.stringContaining("marker blocks"),
       ]),
     );
     expect(report.warnings).toEqual(expect.arrayContaining([expect.stringContaining("9.9.9")]));
@@ -124,5 +124,97 @@ describe("runDoctor", () => {
     expect(report.errors).toEqual(
       expect.arrayContaining([expect.stringContaining("32 characters")]),
     );
+  });
+
+  it("passes an app whose add-created _app.ts still has all four marker blocks", async () => {
+    const cwd = await makeInitialisedApp();
+    const { runAdd } = await import("./add.js");
+    await runAdd(["orders"], { cwd, dryRun: false, force: true });
+    const report = await runDoctor({ cwd });
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([]);
+  });
+
+  it("resolves .env.local OVER .env (Next's precedence) for the secret check", async () => {
+    const cwd = await makeInitialisedApp();
+    // Committed placeholder in .env, real secret in .env.local: the app boots
+    // fine, so doctor must not fail CI.
+    await writeFile(
+      path.join(cwd, ".env"),
+      "DATABASE_URL=postgres://x\nBETTER_AUTH_SECRET=dev\nBETTER_AUTH_URL=http://localhost:3000\n",
+    );
+    await writeFile(path.join(cwd, ".env.local"), `BETTER_AUTH_SECRET=${"b".repeat(64)}\n`);
+    expect((await runDoctor({ cwd })).errors).toEqual([]);
+
+    // ...and the inverse: a good .env overridden by a short .env.local IS a
+    // problem, because that is the value the backend will reject.
+    await writeFile(path.join(cwd, ".env.local"), "BETTER_AUTH_SECRET=too-short\n");
+    expect((await runDoctor({ cwd })).errors).toEqual([
+      "BETTER_AUTH_SECRET is shorter than 32 characters.",
+    ]);
+  });
+
+  it("does not count commented-out env lines as set", async () => {
+    const cwd = await makeInitialisedApp();
+    await writeFile(
+      path.join(cwd, ".env"),
+      [
+        "# DATABASE_URL=postgres://x", // commented out: NOT set
+        "", // blank
+        "JUST_A_WORD", // no separator
+        "=leading-equals", // no name
+        `BETTER_AUTH_SECRET=${"a".repeat(32)}`,
+        "BETTER_AUTH_URL=http://localhost:3000",
+      ].join("\n"),
+    );
+    expect((await runDoctor({ cwd })).warnings).toEqual([
+      expect.stringContaining("DATABASE_URL is not set"),
+    ]);
+  });
+
+  it("warns when POS_API_BASE_PATH is not excluded by the scaffolded proxy matcher", async () => {
+    const cwd = await mkdtemp(path.join(tmpdir(), "nukes-cli-doctor-proxy-"));
+    await writeFile(path.join(cwd, "next.config.ts"), "export default {};\n");
+    await mkdir(path.join(cwd, "app"), { recursive: true });
+    await writeFile(path.join(cwd, "tsconfig.json"), "{}");
+    await writeFile(path.join(cwd, "package.json"), '{ "dependencies": { "next": "16.3.1" } }\n');
+    await runInit({ cwd, dryRun: false, force: true, version: "0.0.0", i18nRouting: true });
+    await writeFile(
+      path.join(cwd, ".env"),
+      `DATABASE_URL=postgres://x\nBETTER_AUTH_SECRET=${"a".repeat(32)}\nBETTER_AUTH_URL=http://x\nPOS_API_BASE_PATH=/pos-api\n`,
+    );
+    expect((await runDoctor({ cwd })).warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining("which the proxy matcher does not exclude")]),
+    );
+
+    // The default mount IS excluded by the shipped matcher — no noise.
+    await writeFile(
+      path.join(cwd, ".env"),
+      `DATABASE_URL=postgres://x\nBETTER_AUTH_SECRET=${"a".repeat(32)}\nBETTER_AUTH_URL=http://x\nPOS_API_BASE_PATH=/api/pos\n`,
+    );
+    expect((await runDoctor({ cwd })).warnings).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("proxy matcher")]),
+    );
+
+    // A hand-edited proxy that lost its matcher literal excludes nothing.
+    await writeFile(path.join(cwd, "proxy.ts"), "export default () => undefined;\n");
+    await writeFile(
+      path.join(cwd, ".env"),
+      `DATABASE_URL=postgres://x\nBETTER_AUTH_SECRET=${"a".repeat(32)}\nBETTER_AUTH_URL=http://x\nPOS_API_BASE_PATH=/api/pos\n`,
+    );
+    expect((await runDoctor({ cwd })).warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining("which the proxy matcher does not exclude")]),
+    );
+  });
+
+  it("says nothing about the matcher in cookie mode (no proxy is scaffolded)", async () => {
+    const cwd = await makeInitialisedApp(); // default: no proxy.ts
+    await writeFile(
+      path.join(cwd, ".env"),
+      `DATABASE_URL=postgres://x\nBETTER_AUTH_SECRET=${"a".repeat(32)}\nBETTER_AUTH_URL=http://x\nPOS_API_BASE_PATH=/pos-api\n`,
+    );
+    const report = await runDoctor({ cwd });
+    expect(report.errors).toEqual([]);
+    expect(report.warnings).toEqual([]);
   });
 });

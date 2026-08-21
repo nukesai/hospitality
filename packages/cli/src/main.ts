@@ -83,8 +83,10 @@ program
 
 program
   .command("add")
-  .argument("<features...>", "optional surfaces to scaffold, e.g. reports kds")
-  .description("Scaffold an additional Nukes POS surface into an initialised app.")
+  .argument("[features...]", "optional surfaces to wire, e.g. reports kds")
+  .description(
+    "Manage the app-local router composition: creates server/routers/_app.ts (once) and wires features into it.",
+  )
   .action(async (features: readonly string[], _local: unknown, command: Command) => {
     const options = globalOptions(command);
     const report = await runAdd(features, options);
@@ -96,6 +98,10 @@ program
     if (!options.silent) {
       for (const feature of report.added) log.success(`added    ${feature}`);
       for (const feature of report.alreadyPresent) log.info(`skipped  ${feature} (already added)`);
+      if (report.extensionCreated === true && report.extensionFile !== undefined) {
+        log.success(`created  ${report.extensionFile}`);
+        log.info("Point app/api/pos/[[...pos]]/route.ts at its `appRouter` to use it.");
+      }
     }
   });
 

@@ -162,4 +162,38 @@ describe("runInit", () => {
     await runInit({ cwd: fresh, ...OPTIONS, force: false, dryRun: true });
     expect(existsSync(path.join(fresh, ".npmrc"))).toBe(false);
   });
+
+  it("UNIONS the ledger on re-run: add-owned entries and features survive", async () => {
+    const cwd = await makeApp();
+    await runInit({ cwd, dryRun: false, force: true, version: "0.0.0" });
+    const { runAdd } = await import("./add.js");
+    await runAdd(
+      ["kds"],
+      { cwd, dryRun: false, force: true },
+      { kds: { name: "kds", routerExport: "kdsRouter" } },
+    );
+
+    // Re-running init is a documented repair flow (doctor's own error text
+    // tells users to) — it must not evict what `add` owns.
+    await runInit({ cwd, dryRun: false, force: true, version: "0.1.0" });
+    const manifest = await readManifest(cwd);
+    expect(manifest?.files).toContain("server/routers/_app.ts");
+    expect(manifest?.features).toContain("kds");
+  });
+
+  it("REFUSES an app whose next.config cannot be wrapped, before writing anything", async () => {
+    const cwd = await mkdtemp(path.join(tmpdir(), "nukes-cli-init-cjs-"));
+    await writeFile(path.join(cwd, "next.config.js"), "module.exports = { basePath: '/x' };\n");
+    await mkdir(path.join(cwd, "app"), { recursive: true });
+    await writeFile(path.join(cwd, "tsconfig.json"), "{}");
+    await writeFile(path.join(cwd, "package.json"), '{ "dependencies": { "next": "16.3.1" } }\n');
+
+    await expect(runInit({ cwd, dryRun: false, force: true, version: "0.0.0" })).rejects.toThrow(
+      /CommonJS/,
+    );
+    // No half-installed repo: nothing was scaffolded, so `init` stays retryable.
+    expect(existsSync(path.join(cwd, ".npmrc"))).toBe(false);
+    expect(existsSync(path.join(cwd, "instrumentation.ts"))).toBe(false);
+    expect(await readManifest(cwd)).toBeNull();
+  });
 });

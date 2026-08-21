@@ -158,6 +158,15 @@ export const ROUTER_MARKERS: RouterMarkers = {
   routersClose: ROUTERS_CLOSE,
 };
 
+/** The four markers in the order they MUST appear — `add` splices by index and
+ *  `doctor` validates against the same list. */
+export const ROUTER_MARKER_ORDER: readonly string[] = [
+  ROUTER_IMPORTS_OPEN,
+  ROUTER_IMPORTS_CLOSE,
+  ROUTERS_OPEN,
+  ROUTERS_CLOSE,
+];
+
 /**
  * The EXTENSION file `nukes-pos add` materializes on demand. The DEFAULT
  * consumer has no server/ directory at all — the route file consumes
