@@ -24,7 +24,8 @@ cd your-nextjs-app
 npx @nukesai-pos/cli init     # scaffolds EVERYTHING: api catch-all, admin route,
                               # i18n request config, routers, deps, env template,
                               # and wraps next.config in withNukesPos()
-npx @nukesai-pos/cli add orders   # materialize feature routers (marker-managed)
+npx @nukesai-pos/cli add          # create the app-local router composition
+                                  # (server/routers/_app.ts) and wire features in
 npx @nukesai-pos/cli doctor       # stamps, env, markers, version drift
 npx @nukesai-pos/cli upgrade      # regenerate pristine files after a bump
 ```
@@ -39,6 +40,7 @@ i18n/request.ts                   -> createPosRequestConfig()           (one lin
 proxy.ts + app/[locale]/*         -> only with --i18n-routing (locale-prefixed URLs)
 server/routers/_app.ts            -> OPTIONAL, created by `nukes-pos add`
                                      only when you add app-local procedures
+                                     (then point route.ts at its appRouter)
 ```
 
 ## Development

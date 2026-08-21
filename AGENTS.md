@@ -143,6 +143,14 @@ ships.
   procedures use the OPTIONAL extension file `nukes-pos add` scaffolds
   (marker-managed `server/routers/_app.ts`, merged via
   `posTrpc.mergeRouters` on the same root instance).
+- **`PosErrorShape.code` stays `TRPC_ERROR_CODE_NUMBER`** — the same class of
+  bug as the zod rule above: widening it to `number` fails tRPC's
+  `TShape extends TRPCErrorShape` constraint, initTRPC silently falls back to
+  `DefaultErrorShape`, and every client loses the typed `error.data`
+  (`zod`/`appCode`/`requestId`). Pinned by the compile contract in
+  `routers.test.ts`.
+- **`getPos()` never caches a failed boot** — a rejected promise is evicted so
+  a transient outage cannot poison the process for its lifetime.
 - **RLS**: every branch table gets the four `branchGuard()` policies + branch-leading
   index; `withBranchContext` is the only sanctioned context entry; migrations/seeds
   run as `pos_owner`, runtime as `pos_app` (never BYPASSRLS, never FORCE RLS).
@@ -167,6 +175,20 @@ ships.
   `createPosRequestConfig` (the next-intl plugin demands an app-local relative
   file); `PosIntl` in the root layout; optional routed mode = `proxy.ts` +
   `[locale]` tree (`nukes-pos init --i18n-routing`).
+- **An `onError` reporter NEVER throws** — use-intl calls it from inside its
+  own catch blocks and then returns a fallback, so a throw converts a degraded
+  string into a 500 (and `relativeTime` re-enters `onError`, whose second throw
+  escapes the render). MISSING_MESSAGE and ENVIRONMENT_FALLBACK are advisories
+  and stay silent; everything else is reported. Consumers configure
+  `timeZone`/`now`/`formats`/`onError` through `createPosRequestConfig`.
+- **Message trees are built prototype-safely** (`Object.hasOwn` +
+  `defineProperty`, see `i18n/safe-object.ts`): catalogs arrive as vendor JSON,
+  where `__proto__` is an ordinary own key.
+- **The locale cascade is LAZY**: `requestLocale` is a getter and `cookies()` is
+  a dynamic API, so each source is read only while the cascade is undecided —
+  eager reads opt statically renderable pages into dynamic rendering.
+- **`definePosRouting` preserves the literal locale tuple** so the scaffolded
+  `AppConfig["Locale"]` augmentation narrows to a union instead of `string`.
 - **Stack**: `pnpm stack:up && pnpm db:migrate && pnpm db:seed`; integration suite
   `pnpm test:integration` (live RLS contracts, opt-in); full E2E `E2E_STACK=1 pnpm e2e`.
 - zod-openapi stays PINNED at 5.4.6 (6.x breaks trpc-to-openapi peers).
@@ -175,6 +197,18 @@ ships.
   The example app IS the CLI's output (routed variant). Scaffolded consumer
   files carry the do-not-edit stamp; `nukes-pos upgrade` rewrites pristine
   files only and drops `.new` next to hand-edited ones.
+- **The CLI writes into CUSTOMER repos, so it fails LOUDLY, never partially**:
+  `init` validates the next.config shape (dry-run patch) BEFORE writing
+  anything and refuses CommonJS / non-wrappable default exports with manual
+  instructions; `spliceRouters` requires all four markers exactly once and in
+  order (a duplicated or inverted block would emit duplicate imports or delete
+  the user's procedures); every mutating command (`init`/`add`/`upgrade`)
+  enforces the clean-worktree guard.
+- **The manifest ledger is APPEND-ONLY across commands**: `init` and `upgrade`
+  union what `add` recorded (the extension file and its features) — dropping an
+  entry blinds `doctor` to a file that is still on disk.
+- **Dependency injection respects EVERY package.json section** — an entry in
+  devDependencies/peerDependencies still wins resolution for the consumer.
 - **Route templates never export `dynamic`/`runtime` segment configs** —
   handlers are dynamic-by-default and `dynamic` is REMOVED under Cache
   Components (build error for consumers who enable it).
