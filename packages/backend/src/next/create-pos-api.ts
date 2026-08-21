@@ -35,6 +35,13 @@ export interface PosApiSource {
 }
 
 /**
+ * What `createPosApi` accepts: a booted instance, or — preferably — the FACTORY
+ * that boots one. The factory form is what keeps `next build` from needing
+ * runtime secrets, because nothing boots until the first request.
+ */
+export type PosApiSourceInput = PosApiSource | (() => Promise<PosApiSource>);
+
+/**
  * Optional surfaces — flip off what a deployment does not expose. Auth and tRPC
  * are always on. `docs` and `openApiJson` default to DEVELOPMENT ONLY: the
  * Scalar page is unauthenticated and loads its renderer from a third-party CDN
@@ -91,10 +98,49 @@ const NOT_FOUND = (paths: PosApiPaths): Response =>
  * so server and clients can never disagree.
  */
 export function createPosApi(
-  pos: PosApiSource,
+  source: PosApiSourceInput,
   router: AnyTRPCRouter & OpenApiRouter,
   options: CreatePosApiOptions = {},
 ): PosApiRouteHandlers {
+  // LAZY on purpose. `next build` evaluates route modules to collect their
+  // config, so anything booted at module scope must succeed with only the
+  // BUILD environment — and a POS boot needs DATABASE_URL, auth secrets and a
+  // reachable database. Passing `getPos` (the function) keeps the build free of
+  // runtime secrets; the boot happens on the first request and is memoized.
+  let ready: Promise<Dispatcher> | undefined;
+  // NOT async on purpose: every caller must share the SAME memoized promise, so
+  // concurrent first requests boot once rather than racing (async would wrap it
+  // in a fresh promise per call).
+  // eslint-disable-next-line @typescript-eslint/promise-function-async
+  const dispatcher = (): Promise<Dispatcher> => {
+    ready ??= (async () => build(await resolve(source), router, options))();
+    return ready;
+  };
+
+  const route =
+    (method: keyof PosApiRouteHandlers): PosRouteHandler =>
+    async (req) =>
+      (await dispatcher())(method, req);
+
+  return {
+    GET: route("GET"),
+    POST: route("POST"),
+    PUT: route("PUT"),
+    PATCH: route("PATCH"),
+    DELETE: route("DELETE"),
+  };
+}
+
+type Dispatcher = (method: keyof PosApiRouteHandlers, req: Request) => Promise<Response>;
+
+const resolve = async (source: PosApiSourceInput): Promise<PosApiSource> =>
+  typeof source === "function" ? source() : Promise.resolve(source);
+
+function build(
+  pos: PosApiSource,
+  router: AnyTRPCRouter & OpenApiRouter,
+  options: CreatePosApiOptions,
+): Dispatcher {
   const paths = posApiPaths(pos.env.POS_API_BASE_PATH);
   const publicByDefault = pos.env.NODE_ENV !== "production";
   const docs_ = options.surfaces?.docs ?? publicByDefault;
@@ -145,8 +191,8 @@ export function createPosApi(
       },
     });
 
-  const dispatch = (method: keyof PosApiRouteHandlers): PosRouteHandler => {
-    return async (req) => {
+  return async (method, req) => {
+    {
       const { pathname } = new URL(req.url);
       if (pathname !== paths.basePath && !pathname.startsWith(`${paths.basePath}/`)) {
         return NOT_FOUND(paths); // catch-all mounted somewhere else than POS_API_BASE_PATH
@@ -180,14 +226,6 @@ export function createPosApi(
         return method === "GET" ? docs() : METHOD_NOT_ALLOWED("GET");
       }
       return NOT_FOUND(paths);
-    };
-  };
-
-  return {
-    GET: dispatch("GET"),
-    POST: dispatch("POST"),
-    PUT: dispatch("PUT"),
-    PATCH: dispatch("PATCH"),
-    DELETE: dispatch("DELETE"),
+    }
   };
 }

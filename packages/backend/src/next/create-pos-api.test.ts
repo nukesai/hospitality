@@ -266,4 +266,27 @@ describe("createPosApi", () => {
     expect((await api.POST(big)).status).toBe(413);
     expect(authCalls).toHaveLength(0); // never reaches better-auth
   });
+
+  it("does NOT boot at construction — `next build` must not need runtime secrets", async () => {
+    // next build evaluates route modules to collect their config. Booting at
+    // module scope made every consumer build require DATABASE_URL, the auth
+    // secrets and a reachable database (caught in CI, reproduced locally).
+    let boots = 0;
+    const { pos } = makeSource();
+    const factory = async (): Promise<typeof pos> => {
+      boots += 1;
+      return Promise.resolve(pos);
+    };
+
+    const api = createPosApi(factory, router);
+    expect(boots).toBe(0); // construction alone boots nothing
+
+    expect((await api.GET(get("/api/pos"))).status).toBe(200);
+    expect(boots).toBe(1);
+
+    // ...and the boot is memoized across requests and methods.
+    await api.GET(get("/api/pos"));
+    await api.POST(new Request(`${ORIGIN}/api/pos/trpc/x`, { method: "POST" }));
+    expect(boots).toBe(1);
+  });
 });

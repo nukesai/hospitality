@@ -8,9 +8,11 @@ import { getPos } from "@nukesai-pos/backend/bootstrap";
 import { createPosApi } from "@nukesai-pos/backend/next";
 import { posCoreRouter } from "@nukesai-pos/backend/trpc";
 
-const pos = await getPos();
-
-export const { GET, POST, PUT, PATCH, DELETE } = createPosApi(pos, posCoreRouter, {
+// `getPos` is passed as a FUNCTION, not awaited here: `next build` evaluates
+// this module to collect the route's config, and booting at module scope would
+// make every build require DATABASE_URL, the auth secrets and a reachable
+// database. The boot happens on the first request instead, and is memoized.
+export const { GET, POST, PUT, PATCH, DELETE } = createPosApi(getPos, posCoreRouter, {
   // The Scalar page and the OpenAPI document default to DEVELOPMENT ONLY —
   // they are unauthenticated and Scalar pulls its renderer from a CDN into this
   // origin. This fixture publishes them deliberately; a real deployment should
