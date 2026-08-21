@@ -1,5 +1,7 @@
 import type { PosMessageKey } from "@nukesai-pos/common/i18n/locales/en";
 
+import { defineOwn, ownValue } from "./safe-object.js";
+
 /**
  * next-intl reserves "." for nesting — "Namespace keys cannot contain the
  * character '.'" (docs, verified 2026-08-21) — while the common catalog (the
@@ -39,7 +41,9 @@ export interface PosMessages {
  * Flat dotted catalog → nested tree. Throws on prefix collisions ("a.b" leaf
  * next to "a.b.c") because one silently overwriting the other would drop
  * translations — the catalog type makes this impossible today; the guard keeps
- * it impossible for consumer-supplied catalogs.
+ * it impossible for consumer-supplied catalogs. Segment reads/writes go through
+ * the prototype-safe helpers, so a hostile `__proto__.x` key in a vendor
+ * catalog becomes an ordinary (inert) node instead of polluting the process.
  */
 export const nestPosMessages = (flat: Readonly<Record<string, string>>): NestedMessages => {
   const root: Record<string, unknown> = {};
@@ -47,17 +51,21 @@ export const nestPosMessages = (flat: Readonly<Record<string, string>>): NestedM
     const parts = key.split(".");
     let node = root;
     for (const part of parts.slice(0, -1)) {
-      const existing = (node[part] ??= {});
+      let existing = ownValue(node, part);
+      if (existing === undefined) {
+        existing = {};
+        defineOwn(node, part, existing);
+      }
       if (typeof existing === "string") {
         throw new Error(`Catalog key "${key}" nests under an existing leaf — rename one of them.`);
       }
       node = existing as Record<string, unknown>;
     }
     const leaf = String(parts.at(-1)); // split(".") never yields an empty array
-    if (typeof node[leaf] === "object") {
+    if (typeof ownValue(node, leaf) === "object") {
       throw new Error(`Catalog key "${key}" is a leaf but already exists as a branch.`);
     }
-    node[leaf] = value;
+    defineOwn(node, leaf, value);
   }
   return root as NestedMessages;
 };

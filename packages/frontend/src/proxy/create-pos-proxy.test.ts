@@ -33,4 +33,21 @@ describe("createPosProxy", () => {
     expect(response.headers.get("location")).toBe("http://localhost:3100/de");
     expect(POS_PROXY_MATCHER.startsWith("/((?!api|trpc|_next|_vercel")).toBe(true);
   });
+
+  it("passes POS API requests straight through (any POS_API_BASE_PATH, not just /api)", async () => {
+    const proxy = createPosProxy(undefined, { apiBasePath: "/pos-api" });
+    for (const url of ["http://localhost:3100/pos-api", "http://localhost:3100/pos-api/trpc/x"]) {
+      const response = await proxy(new NextRequest(url));
+      expect(response.headers.get("x-middleware-next")).toBe("1");
+      expect(response.headers.get("location")).toBeNull(); // never locale-redirected
+    }
+    // A path that merely starts with the same characters is NOT the API.
+    const sibling = await proxy(new NextRequest("http://localhost:3100/pos-apidocs"));
+    expect(sibling.headers.get("x-middleware-next")).toBeNull();
+  });
+
+  it("defaults the API passthrough to the packaged base path", async () => {
+    const response = await createPosProxy()(new NextRequest("http://localhost:3100/api/pos/trpc"));
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
 });

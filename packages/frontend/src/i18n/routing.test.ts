@@ -30,4 +30,23 @@ describe("definePosRouting", () => {
       localeCookie: false,
     });
   });
+
+  it("preserves the LITERAL locale tuple the scaffolded AppConfig augmentation narrows on", () => {
+    const routing = definePosRouting();
+    expect(routing.locales).toEqual(["en", "ne"]);
+    // `Locale: (typeof routing.locales)[number]` must be a union, not `string`
+    // — otherwise the shipped global.d.ts augmentation is decorative and every
+    // getTranslations({ locale }) typo compiles.
+    const locale: (typeof routing.locales)[number] = "ne";
+    // @ts-expect-error -- "enn" is not a POS locale
+    const typo: (typeof routing.locales)[number] = "enn";
+
+    const custom = definePosRouting({ locales: ["en", "fr"], defaultLocale: "fr" });
+    expect(custom.locales).toEqual(["en", "fr"]);
+    const french: (typeof custom.locales)[number] = "fr";
+    // @ts-expect-error -- "ne" is not in the consumer's locale set
+    const missing: (typeof custom.locales)[number] = "ne";
+
+    expect([locale, typo, french, missing]).toEqual(["ne", "enn", "fr", "ne"]);
+  });
 });

@@ -1,13 +1,13 @@
 import "server-only";
 
-import type { AbstractIntlMessages, IntlError } from "next-intl";
+import type { AbstractIntlMessages, Formats, IntlError } from "next-intl";
 import { getRequestConfig } from "next-intl/server";
 import { cookies } from "next/headers";
 
 import { posIntlOnError, posMessageFallback } from "../i18n/fallback.js";
 import {
   buildPosMessages,
-  pickPosLocale,
+  resolvePosLocale,
   type PosRequestCoreOptions,
 } from "../i18n/request-config.js";
 import { POS_DEFAULT_LOCALE, POS_LOCALES } from "../i18n/routing.js";
@@ -26,6 +26,18 @@ export interface PosRequestConfigOptions extends PosRequestCoreOptions {
    * dynamic rendering.
    */
   readonly cookieName?: string | false | undefined;
+  /**
+   * IANA time zone for every date/time format. Without one next-intl formats
+   * in the SERVER's zone (which differs from the visitor's) and raises an
+   * ENVIRONMENT_FALLBACK advisory on every call.
+   */
+  readonly timeZone?: string | undefined;
+  /** Fixed "now" for relativeTime(), keeping SSR and hydration identical. */
+  readonly now?: Date | undefined;
+  /** Global format presets, e.g. `{ dateTime: { short: { … } } }`. */
+  readonly formats?: Formats | undefined;
+  /** Replace the POS reporter (advisories silent, faults console.error'd). */
+  readonly onError?: ((error: IntlError) => void) | undefined;
 }
 
 /** What the resolver hands next-intl per request. */
@@ -38,6 +50,9 @@ export interface PosResolvedRequestConfig {
     readonly key: string;
     readonly error: IntlError;
   }) => string;
+  readonly timeZone?: string;
+  readonly now?: Date;
+  readonly formats?: Formats;
 }
 
 /**
@@ -62,26 +77,35 @@ export type PosRequestConfig = (params: {
  * — because next-intl's plugin aliases `next-intl/config` to exactly one
  * app-local RELATIVE file (package specifiers are not supported; verified in
  * plugin source). Locale cascade: explicit (getTranslations({locale})) →
- * resolveLocale() → cookie → default; messages merge pos-catalog ← app ←
+ * resolveLocale() → the [locale] segment → cookie → default, each source read
+ * ONLY while the cascade is undecided; messages merge pos-catalog ← app ←
  * overrides, so a consumer can override any single string.
  */
 export const createPosRequestConfig = (options: PosRequestConfigOptions = {}): PosRequestConfig => {
   const locales = options.locales ?? POS_LOCALES;
   const defaultLocale = options.defaultLocale ?? POS_DEFAULT_LOCALE;
-  const posMessages = options.posMessages ?? posMessageLoaders;
+  // Consumer catalogs LAYER over the shipped ones: adding "fr" must not drop
+  // the en/ne the package ships (a silent regression — missing messages render
+  // as their key path by design).
+  const posMessages = { ...posMessageLoaders, ...options.posMessages };
 
-  // Cascade: explicit (getTranslations({locale})) > app resolver > the
-  // [locale] segment next-intl forwards in routed apps > cookie > default.
-  // eslint-disable-next-line @typescript-eslint/no-deprecated -- deliberate compatibility bridge: requestLocale still carries the [locale] segment for apps not yet on next/root-params (deprecated upstream in 4.13.6); consumers opt into the successor via resolveLocale.
-  return getRequestConfig(async ({ locale: explicitLocale, requestLocale }) => {
-    const resolvedLocale = (await options.resolveLocale?.()) ?? (await requestLocale);
-    let cookieLocale: string | null = null;
-    if (options.cookieName !== false) {
-      const store = await cookies();
-      cookieLocale = store.get(options.cookieName ?? "NEXT_LOCALE")?.value ?? null;
-    }
-    const locale = pickPosLocale(
-      { explicitLocale, resolvedLocale, cookieLocale },
+  // `requestLocale` is a lazy getter on next-intl's params object (verified in
+  // the compiled dist): destructuring it would read request headers even when a
+  // higher-priority candidate already decided the locale, so params is kept
+  // whole and every dynamic source stays behind a supplier.
+  return getRequestConfig(async (params) => {
+    const locale = await resolvePosLocale(
+      [
+        params.locale,
+        options.resolveLocale,
+        // eslint-disable-next-line @typescript-eslint/no-deprecated, @typescript-eslint/promise-function-async -- deliberate compatibility bridge: requestLocale still carries the [locale] segment for apps not yet on next/root-params (deprecated upstream in 4.13.6); consumers opt into the successor via resolveLocale. Reading it must stay a plain getter access so the supplier can stay unread.
+        () => params.requestLocale,
+        async () => {
+          if (options.cookieName === false) return null;
+          const store = await cookies();
+          return store.get(options.cookieName ?? "NEXT_LOCALE")?.value ?? null;
+        },
+      ],
       locales,
       defaultLocale,
     );
@@ -93,8 +117,11 @@ export const createPosRequestConfig = (options: PosRequestConfigOptions = {}): P
         posMessages,
         options,
       )) as AbstractIntlMessages,
-      onError: posIntlOnError,
+      onError: options.onError ?? posIntlOnError,
       getMessageFallback: posMessageFallback,
+      ...(options.timeZone === undefined ? {} : { timeZone: options.timeZone }),
+      ...(options.now === undefined ? {} : { now: options.now }),
+      ...(options.formats === undefined ? {} : { formats: options.formats }),
     };
   }) as PosRequestConfig;
 };

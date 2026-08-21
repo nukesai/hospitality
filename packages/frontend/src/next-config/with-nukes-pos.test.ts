@@ -57,4 +57,32 @@ describe("withNukesPos", () => {
       "@nukesai-pos/common",
     ]);
   });
+
+  it("composes a FUNCTION-shaped config instead of spreading it away", async () => {
+    // `export default (phase) => ({...})` is a documented next.config shape;
+    // `{...fn}` yields {} — every user option would vanish silently.
+    const wrapped = withNukesPos(
+      (phase: string) => ({ reactStrictMode: true, basePath: `/${phase}` }),
+      { intl: false },
+    );
+    expect(typeof wrapped).toBe("function");
+    const resolved = await wrapped("phase-production-build", { defaultConfig: {} });
+    expect(resolved).toMatchObject({
+      reactStrictMode: true,
+      basePath: "/phase-production-build",
+      serverExternalPackages: ["@nukesai-pos/backend"],
+    });
+  });
+
+  it("awaits an ASYNC function-shaped config", async () => {
+    const wrapped = withNukesPos(async () => Promise.resolve({ poweredByHeader: false }), {
+      intl: false,
+    });
+    await expect(wrapped("phase-development-server", { defaultConfig: {} })).resolves.toMatchObject(
+      {
+        poweredByHeader: false,
+        serverExternalPackages: ["@nukesai-pos/backend"],
+      },
+    );
+  });
 });

@@ -11,19 +11,25 @@ import { POS_DEFAULT_LOCALE, POS_LOCALES } from "./routing.js";
  *  (not an indexed record) so interface-typed catalogs assign cleanly. */
 export type PosMessageSource = Readonly<Record<string, () => Promise<object> | object>>;
 
-export interface PosLocaleRequest {
-  /** Locale next-intl passed explicitly (e.g. getTranslations({locale})). */
-  readonly explicitLocale?: string | undefined;
-  /** App-resolved candidate, e.g. `await rootParams.locale()` or a session value. */
-  readonly resolvedLocale?: string | null | undefined;
-  /** Cookie value, when the server shim read one. */
-  readonly cookieLocale?: string | null | undefined;
-}
+/**
+ * One candidate in the locale cascade: either a value already in hand or a
+ * SUPPLIER that is only invoked if every higher-priority candidate missed.
+ * Laziness is load-bearing on the server — the request-locale and cookie
+ * candidates touch Next's dynamic APIs, which would opt a statically
+ * renderable page into dynamic rendering just by being read.
+ */
+export type PosLocaleCandidate =
+  | string
+  | null
+  | undefined
+  | (() => string | null | undefined | Promise<string | null | undefined>);
 
 export interface PosRequestCoreOptions {
   readonly locales?: readonly string[];
   readonly defaultLocale?: string;
-  /** Consumer catalogs for extra locales / full overrides of the shipped ones. */
+  /** Consumer catalogs, MERGED over the shipped loaders (per locale): add a
+   *  locale the package does not ship, or replace the catalog of one it does,
+   *  without losing the others. */
   readonly posMessages?: PosMessageSource | undefined;
   /** App-own messages, merged AFTER the pos catalog (app wins per leaf). */
   readonly messages?: ((locale: string) => Promise<object> | object) | undefined;
@@ -31,14 +37,19 @@ export interface PosRequestCoreOptions {
   readonly overrides?: Readonly<Record<string, object>> | undefined;
 }
 
-/** First supported candidate wins: explicit > resolved > cookie > default. */
-export const pickPosLocale = (
-  request: PosLocaleRequest,
+/**
+ * First SUPPORTED candidate wins; unsupported values fall through to the next
+ * one and an exhausted cascade lands on `defaultLocale`. Suppliers run in
+ * order and only while the cascade is still undecided.
+ */
+export const resolvePosLocale = async (
+  candidates: readonly PosLocaleCandidate[],
   locales: readonly string[] = POS_LOCALES,
   defaultLocale: string = POS_DEFAULT_LOCALE,
-): string => {
-  for (const candidate of [request.explicitLocale, request.resolvedLocale, request.cookieLocale]) {
-    if (typeof candidate === "string" && locales.includes(candidate)) return candidate;
+): Promise<string> => {
+  for (const candidate of candidates) {
+    const value = typeof candidate === "function" ? await candidate() : candidate;
+    if (typeof value === "string" && locales.includes(value)) return value;
   }
   return defaultLocale;
 };

@@ -29,6 +29,22 @@ describe("nestPosMessages", () => {
     );
   });
 
+  it("keeps hostile catalog keys inert instead of polluting Object.prototype", () => {
+    // TMS/CMS exports are JSON: "__proto__" arrives as an ORDINARY own key.
+    const nested = nestPosMessages(
+      JSON.parse('{"__proto__.isAdmin": "true", "constructor.prototype.pwned": "yes"}') as Record<
+        string,
+        string
+      >,
+    );
+    const probe: Record<string, unknown> = {};
+    expect(Object.hasOwn(probe, "isAdmin") || "isAdmin" in probe).toBe(false);
+    expect("pwned" in probe).toBe(false);
+    // ...and the values are still carried, as ordinary own properties.
+    const branch = Object.getOwnPropertyDescriptor(nested, "__proto__")?.value as object;
+    expect(Object.getOwnPropertyDescriptor(branch, "isAdmin")?.value).toBe("true");
+  });
+
   it("exposes the pos namespace constant templates rely on", () => {
     expect(POS_NAMESPACE).toBe("pos");
   });

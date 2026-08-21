@@ -1,18 +1,33 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { buildPosMessages, pickPosLocale } from "./request-config.js";
+import { buildPosMessages, resolvePosLocale } from "./request-config.js";
 
-describe("pickPosLocale", () => {
-  it("prefers explicit over resolved over cookie, skipping unsupported candidates", () => {
-    expect(pickPosLocale({ explicitLocale: "ne", resolvedLocale: "en" })).toBe("ne");
-    expect(pickPosLocale({ explicitLocale: "fr", resolvedLocale: "ne" })).toBe("ne");
-    expect(pickPosLocale({ resolvedLocale: null, cookieLocale: "ne" })).toBe("ne");
-    expect(pickPosLocale({})).toBe("en");
+describe("resolvePosLocale", () => {
+  it("prefers the first SUPPORTED candidate, skipping unsupported ones", async () => {
+    expect(await resolvePosLocale(["ne", "en"])).toBe("ne");
+    expect(await resolvePosLocale(["fr", "ne"])).toBe("ne");
+    expect(await resolvePosLocale([null, undefined, "ne"])).toBe("ne");
+    expect(await resolvePosLocale([])).toBe("en");
   });
 
-  it("honors custom locale sets and defaults", () => {
-    expect(pickPosLocale({ cookieLocale: "de" }, ["de", "fr"], "fr")).toBe("de");
-    expect(pickPosLocale({ cookieLocale: "en" }, ["de", "fr"], "fr")).toBe("fr");
+  it("honors custom locale sets and defaults", async () => {
+    expect(await resolvePosLocale(["de"], ["de", "fr"], "fr")).toBe("de");
+    expect(await resolvePosLocale(["en"], ["de", "fr"], "fr")).toBe("fr");
+  });
+
+  it("resolves sync and async suppliers", async () => {
+    expect(await resolvePosLocale([() => "ne"])).toBe("ne");
+    expect(await resolvePosLocale([async () => Promise.resolve("ne")])).toBe("ne");
+  });
+
+  it("never runs a supplier once the cascade is decided (dynamic APIs stay untouched)", async () => {
+    const later = vi.fn(() => "ne");
+    expect(await resolvePosLocale(["en", later])).toBe("en");
+    expect(later).not.toHaveBeenCalled();
+
+    const skipped = vi.fn(() => "ne");
+    expect(await resolvePosLocale(["fr", "en", skipped])).toBe("en");
+    expect(skipped).not.toHaveBeenCalled();
   });
 });
 

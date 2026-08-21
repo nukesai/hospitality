@@ -7,18 +7,20 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-const cookieStore = { value: undefined as string | undefined };
+const cookieStore = { value: undefined as string | undefined, reads: 0 };
 vi.mock("next-intl/server", () => ({
   getRequestConfig: (fn: unknown) => fn,
 }));
 vi.mock("next/headers", () => ({
-  cookies: async () =>
-    Promise.resolve({
+  cookies: async () => {
+    cookieStore.reads += 1;
+    return Promise.resolve({
       get: (name: string) =>
         name === "NEXT_LOCALE" && cookieStore.value !== undefined
           ? { value: cookieStore.value }
           : undefined,
-    }),
+    });
+  },
 }));
 
 import { posIntlOnError, posMessageFallback } from "../i18n/fallback.js";
@@ -32,6 +34,9 @@ type ConfigFn = (params: {
   messages: Record<string, unknown>;
   onError: unknown;
   getMessageFallback: unknown;
+  timeZone?: string;
+  now?: Date;
+  formats?: unknown;
 }>;
 
 const configFor = (options?: PosRequestConfigOptions): ConfigFn => createPosRequestConfig(options);
@@ -93,5 +98,73 @@ describe("createPosRequestConfig", () => {
       app: { hello: "hi" },
       pos: { order: { total: "Sum: {amount}" } },
     });
+  });
+
+  it("LAYERS consumer catalogs over the shipped ones instead of replacing them", async () => {
+    cookieStore.value = undefined;
+    const options: PosRequestConfigOptions = {
+      locales: ["en", "ne", "fr"],
+      posMessages: { fr: () => ({ pos: { order: { status: { ready: "Prêt" } } } }) },
+    };
+    // The added locale works...
+    expect(await configFor(options)({ locale: "fr" })).toMatchObject({
+      locale: "fr",
+      messages: { pos: { order: { status: { ready: "Prêt" } } } },
+    });
+    // ...and the shipped catalogs are still there (the silent-regression case:
+    // missing messages render as their key path, so nothing would have failed).
+    expect(await configFor(options)({ locale: "ne" })).toMatchObject({
+      messages: { pos: { order: { status: { ready: "तयार" } } } },
+    });
+  });
+
+  it("does not touch cookies once a higher-priority candidate decided the locale", async () => {
+    cookieStore.value = "ne";
+    cookieStore.reads = 0;
+    expect(await configFor()({ locale: "en" })).toMatchObject({ locale: "en" });
+    expect(await configFor({ resolveLocale: async () => Promise.resolve("ne") })({})).toMatchObject(
+      {
+        locale: "ne",
+      },
+    );
+    expect(cookieStore.reads).toBe(0);
+    // ...but the cookie IS read when the cascade is still undecided.
+    await configFor()({});
+    expect(cookieStore.reads).toBe(1);
+  });
+
+  it("reads the deprecated requestLocale getter lazily (static rendering stays possible)", async () => {
+    cookieStore.value = undefined;
+    let requestLocaleReads = 0;
+    const params = {
+      locale: "ne",
+      get requestLocale(): Promise<string | undefined> {
+        requestLocaleReads += 1;
+        return Promise.resolve("en");
+      },
+    };
+    expect(await configFor()(params)).toMatchObject({ locale: "ne" });
+    expect(requestLocaleReads).toBe(0);
+  });
+
+  it("passes timeZone/now/formats through and lets onError be replaced", async () => {
+    cookieStore.value = undefined;
+    const now = new Date("2026-08-21T00:00:00.000Z");
+    const onError = (): void => undefined;
+    const formats = { dateTime: { short: { dateStyle: "short" as const } } };
+    const config = await configFor({ timeZone: "Asia/Kathmandu", now, formats, onError })({});
+    expect(config).toMatchObject({ timeZone: "Asia/Kathmandu", now, formats, onError });
+  });
+
+  it("omits the optional keys entirely when not configured", async () => {
+    cookieStore.value = undefined;
+    const config = await configFor()({});
+    expect(Object.keys(config).sort()).toEqual([
+      "getMessageFallback",
+      "locale",
+      "messages",
+      "onError",
+    ]);
+    expect(config.onError).toBe(posIntlOnError);
   });
 });

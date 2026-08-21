@@ -3,8 +3,12 @@ import type { CurrencyCode, Order } from "@nukesai-pos/common/types";
 import { createDemoOrderRepository } from "@nukesai-pos/backend/adapters/demo";
 import { OrderTicket } from "@nukesai-pos/frontend/client";
 import { OrderSummary } from "@nukesai-pos/frontend/server";
+import { hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { notFound } from "next/navigation";
 import type { ReactElement } from "react";
+
+import { routing } from "../../i18n/routing";
 
 const seed: Order = {
   id: "order-1",
@@ -31,6 +35,10 @@ export default async function HomePage({
   readonly params: Promise<{ readonly locale: string }>;
 }): Promise<ReactElement> {
   const { locale } = await params;
+  // The AppConfig augmentation types `locale` as the routing union, so the
+  // narrow is what makes an unknown segment a 404 instead of a silent
+  // fallback render.
+  if (!hasLocale(routing.locales, locale)) notFound();
   const t = await getTranslations({ locale, namespace: "pos" });
   const repository = createDemoOrderRepository([seed]);
   const order = await repository.findById(DEMO_LOCATION_ID, "order-1");

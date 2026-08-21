@@ -21,10 +21,31 @@ export interface WithNukesPosOptions {
   readonly optimizePackageImports?: boolean;
 }
 
+/**
+ * Next accepts a config object OR a `(phase, { defaultConfig })` function
+ * (`next.config.ts` documents both). Both shapes are wrapped: spreading a
+ * FUNCTION would quietly produce `{}` and drop every option the host app
+ * declared, so the function form is composed instead.
+ */
+export type NextConfigFn = (
+  phase: string,
+  context: { defaultConfig: NextConfig },
+) => NextConfig | Promise<NextConfig>;
+export type NextConfigInput = NextConfig | NextConfigFn;
+
+export function withNukesPos(config?: NextConfig, options?: WithNukesPosOptions): NextConfig;
+export function withNukesPos(config: NextConfigFn, options?: WithNukesPosOptions): NextConfigFn;
 export function withNukesPos(
-  config: NextConfig = {},
+  config: NextConfigInput = {},
   options: WithNukesPosOptions = {},
-): NextConfig {
+): NextConfigInput {
+  if (typeof config === "function") {
+    return async (phase, context) => applyNukesPos(await config(phase, context), options);
+  }
+  return applyNukesPos(config, options);
+}
+
+function applyNukesPos(config: NextConfig, options: WithNukesPosOptions): NextConfig {
   let next: NextConfig = {
     ...config,
     // Backend stays a native Node dependency graph (pg pools, pino) — never

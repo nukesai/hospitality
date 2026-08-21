@@ -23,6 +23,14 @@ describe("mergePosMessages", () => {
     expect(mergePosMessages({ a: { deep: true } }, { a: [2] })).toEqual({ a: [2] });
   });
 
+  it("never lets a `__proto__` key escape into the prototype chain", () => {
+    const hostile = JSON.parse('{"__proto__": {"isAdmin": true}, "keep": "me"}') as object;
+    const merged = mergePosMessages({ a: "1" }, hostile);
+    expect("isAdmin" in {}).toBe(false);
+    expect(Object.getPrototypeOf(merged)).toBe(Object.prototype);
+    expect(merged).toMatchObject({ a: "1", keep: "me" });
+  });
+
   it("returns an empty tree for no sources", () => {
     expect(mergePosMessages()).toEqual({});
   });

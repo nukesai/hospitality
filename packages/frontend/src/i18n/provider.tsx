@@ -9,11 +9,14 @@ export type PosIntlProviderProps = ComponentProps<typeof NextIntlClientProvider>
 
 /** next-intl's CLIENT provider hard-requires `locale` before it merges any
  *  ancestor context (verified in the compiled dist) — so the inherit path must
- *  read the ancestor's locale itself. Split component keeps hook rules happy. */
+ *  read the ancestor's locale itself. Split component keeps hook rules happy.
+ *  `locale` is applied AFTER the spread: a caller who passed `locale={undefined}`
+ *  explicitly still carries that own key in `rest`, and spreading it last would
+ *  clobber the ancestor value and trip next-intl's "couldn't infer" throw. */
 function PosIntlFromAncestor({ children, ...rest }: PosIntlProviderProps): ReactElement {
   const locale = useLocale();
   return (
-    <NextIntlClientProvider locale={locale} {...rest}>
+    <NextIntlClientProvider {...rest} locale={locale}>
       {children}
     </NextIntlClientProvider>
   );

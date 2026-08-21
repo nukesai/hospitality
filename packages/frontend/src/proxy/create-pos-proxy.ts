@@ -1,5 +1,6 @@
+import { DEFAULT_POS_API_BASE_PATH } from "@nukesai-pos/common/constants";
 import createIntlMiddleware from "next-intl/middleware";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { definePosRouting, type PosRouting } from "../i18n/routing.js";
 
@@ -20,10 +21,32 @@ import { definePosRouting, type PosRouting } from "../i18n/routing.js";
  */
 export const POS_PROXY_MATCHER = "/((?!api|trpc|_next|_vercel|.*\\..*).*)";
 
+export interface PosProxyOptions {
+  /**
+   * Where the POS API is mounted (`POS_API_BASE_PATH`, default `/api/pos`).
+   * Requests under it are passed straight through: the default matcher only
+   * excludes `/api`, so a base path mounted anywhere else would otherwise be
+   * locale-redirected and the API would 404 for every client.
+   */
+  readonly apiBasePath?: string;
+}
+
 export type PosProxy = (request: NextRequest) => Response | Promise<Response>;
 
-export function createPosProxy(routing: PosRouting = definePosRouting()): PosProxy {
+export function createPosProxy(
+  routing: PosRouting = definePosRouting(),
+  options: PosProxyOptions = {},
+): PosProxy {
   // PosRouting is structurally a RoutingConfig without domains/pathnames; the
   // cast keeps next-intl's five-generic type out of our public dts (R1-style).
-  return createIntlMiddleware(routing as Parameters<typeof createIntlMiddleware>[0]);
+  const intl = createIntlMiddleware(routing as Parameters<typeof createIntlMiddleware>[0]);
+  const apiBasePath = options.apiBasePath ?? DEFAULT_POS_API_BASE_PATH;
+
+  return (request: NextRequest) => {
+    const { pathname } = request.nextUrl;
+    if (pathname === apiBasePath || pathname.startsWith(`${apiBasePath}/`)) {
+      return NextResponse.next();
+    }
+    return intl(request);
+  };
 }
