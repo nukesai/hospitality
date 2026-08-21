@@ -119,7 +119,14 @@ export function posErrorFormatter(opts: {
   readonly ctx: PosTrpcContext | undefined;
 }): PosErrorShape {
   const { shape, error, ctx } = opts;
-  const zod = error.cause instanceof ZodError ? z.flattenError(error.cause) : null;
+  // ONLY input validation may surface its issues: validation422Middleware
+  // remaps those to UNPROCESSABLE_CONTENT. An OUTPUT-schema failure arrives as
+  // INTERNAL_SERVER_ERROR with a ZodError cause, and shipping it would leak the
+  // internal DTO shape (field paths, uuid/datetime regex sources) to any client.
+  const zod =
+    error.code === "UNPROCESSABLE_CONTENT" && error.cause instanceof ZodError
+      ? z.flattenError(error.cause)
+      : null;
   const appError = error.cause instanceof AppError ? error.cause : null;
   const { stack: _stack, ...data } = shape.data;
   // tRPC copies cause.message onto unknown thrown errors — NEVER ship internals:

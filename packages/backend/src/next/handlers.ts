@@ -32,25 +32,33 @@ export interface ApiHandlerConfig {
 export type PosRouteHandler = (req: Request) => Promise<Response>;
 type Handler = PosRouteHandler;
 
+/**
+ * Body-size half of the guard, exported because better-auth handles its own
+ * origin checks but imposes NO size limit — and `/auth/*` is the only surface
+ * reachable before a session exists, so it is the one that most needs a cap.
+ */
+export function guardBodySize(req: Request, cfg: ApiHandlerConfig): Response | null {
+  if (req.method === "GET" || req.method === "HEAD" || req.body === null) return null;
+  // A missing/invalid Content-Length (chunked transfer) would bypass a
+  // header-based cap entirely — require a declared, parseable length.
+  const rawLength = req.headers.get("content-length");
+  if (rawLength === null || !/^\d+$/.test(rawLength)) {
+    return new Response("Length Required", { status: 411 });
+  }
+  if (Number(rawLength) > cfg.maxBodyBytes) {
+    return new Response("Payload too large", { status: 413 });
+  }
+  return null;
+}
+
 function guard(req: Request, cfg: ApiHandlerConfig): Response | null {
   if (req.method !== "GET" && req.method !== "HEAD") {
     const origin = req.headers.get("origin");
     if (origin !== null && !cfg.trustedOrigins.includes(origin)) {
       return new Response("Forbidden origin", { status: 403 });
     }
-    // A missing/invalid Content-Length (chunked transfer) would bypass a
-    // header-based cap entirely — require a declared, parseable length.
-    const rawLength = req.headers.get("content-length");
-    if (req.body !== null) {
-      if (rawLength === null || !/^\d+$/.test(rawLength)) {
-        return new Response("Length Required", { status: 411 });
-      }
-      if (Number(rawLength) > cfg.maxBodyBytes) {
-        return new Response("Payload too large", { status: 413 });
-      }
-    }
   }
-  return null;
+  return guardBodySize(req, cfg);
 }
 
 export function createTrpcHandlers(

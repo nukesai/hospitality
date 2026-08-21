@@ -5,19 +5,15 @@ import type { ReactElement, ReactNode } from "react";
 
 import { routing } from "../../i18n/routing";
 
-export const metadata = {
-  title: "Nukes POS Example",
-  description: "Consumer fixture for the @nukesai-pos packages.",
-};
-
 export function generateStaticParams(): { locale: string }[] {
   return routing.locales.map((locale) => ({ locale }));
 }
 
 /**
- * Root layout lives under [locale] (next-intl routed mode). PosIntl inherits
- * locale+messages from the request config server-side and re-declares the POS
- * fallback behavior on the client — one tag, zero props.
+ * Locale segment layout — NESTED inside your own root layout, so your <html>,
+ * <body> and metadata stay yours. Passing `locale` is what makes the subtree
+ * statically renderable: PosIntl primes next-intl's request cache with it, and
+ * without that every page below falls back to reading request headers.
  */
 export default async function LocaleLayout({
   children,
@@ -29,11 +25,5 @@ export default async function LocaleLayout({
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
 
-  return (
-    <html lang={locale}>
-      <body>
-        <PosIntl>{children}</PosIntl>
-      </body>
-    </html>
-  );
+  return <PosIntl locale={locale}>{children}</PosIntl>;
 }

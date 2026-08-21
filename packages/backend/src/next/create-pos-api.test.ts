@@ -30,6 +30,7 @@ const router = t.router({
 const ORIGIN = "http://127.0.0.1:3100";
 
 interface SourceOptions {
+  readonly nodeEnv?: string;
   readonly basePath?: string;
   readonly authHandler?: (req: Request) => Promise<Response>;
 }
@@ -44,6 +45,7 @@ const makeSource = (
       BETTER_AUTH_URL: ORIGIN,
       API_MAX_BODY_BYTES: 1024,
       POS_API_BASE_PATH: options.basePath ?? "/api/pos",
+      NODE_ENV: options.nodeEnv ?? "development",
     },
     auth: {
       handler:
@@ -230,5 +232,38 @@ describe("createPosApi", () => {
     expect((await api.PUT(new Request(`${ORIGIN}/api/pos/auth/x`, { method: "PUT" }))).status).toBe(
       200,
     );
+  });
+
+  it("keeps the docs + openapi surfaces OFF in production unless asked", async () => {
+    // The Scalar page is unauthenticated and loads its renderer from a CDN into
+    // the app's own origin — publishing it must be a decision, not a default.
+    const { pos } = makeSource({ nodeEnv: "production" });
+    const api = createPosApi(pos, router);
+    expect((await api.GET(get("/api/pos/docs"))).status).toBe(404);
+    expect((await api.GET(get("/api/pos/openapi.json"))).status).toBe(404);
+    const index = (await (await api.GET(get("/api/pos"))).json()) as {
+      surfaces: Record<string, string>;
+    };
+    expect(index.surfaces).not.toHaveProperty("docs");
+    expect(index.surfaces).not.toHaveProperty("openApiJson");
+
+    // ...and an explicit opt-in still publishes them in production.
+    const opted = createPosApi(pos, router, { surfaces: { docs: true } });
+    expect((await opted.GET(get("/api/pos/docs"))).status).toBe(200);
+    expect((await opted.GET(get("/api/pos/openapi.json"))).status).toBe(200);
+  });
+
+  it("caps the body on the pre-session auth surface", async () => {
+    // better-auth enforces origins but no size limit, and /auth/* is reachable
+    // without a session — an unbounded sign-up body would be buffered and parsed.
+    const { pos, authCalls } = makeSource();
+    const api = createPosApi(pos, router);
+    const big = new Request(`${ORIGIN}/api/pos/auth/sign-up/email`, {
+      method: "POST",
+      body: "x".repeat(2048),
+      headers: { origin: ORIGIN, "content-length": "2048" },
+    });
+    expect((await api.POST(big)).status).toBe(413);
+    expect(authCalls).toHaveLength(0); // never reaches better-auth
   });
 });

@@ -200,34 +200,56 @@ export const isomorphicZone = {
   },
 };
 
+/** AGENTS.md §7: no i18n FRAMEWORK ever enters common or backend — catalogs are
+ * plain data and the dependency-free common translator serves the server side.
+ *
+ * Exported as DATA, never as a standalone config block: ESLint flat config
+ * replaces rule options WHOLESALE, so a second block targeting the same files
+ * and the same `no-restricted-imports` rule silently deletes the bans declared
+ * before it (that is exactly how the leaf-package ban was lost once). Merge it
+ * with `withI18nFrameworkBan` into the block that already owns the rule.
+ */
+const I18N_FRAMEWORKS = ["i18next", "react-i18next", "next-intl", "use-intl"];
+const I18N_MESSAGE = `i18n frameworks live in @nukesai-pos/frontend only; common/backend use the dependency-free translator. ${DOC}`;
+
+export const i18nFrameworkPaths = I18N_FRAMEWORKS.map((name) => ({
+  name,
+  message: I18N_MESSAGE,
+}));
+export const i18nFrameworkPatterns = [
+  { group: I18N_FRAMEWORKS.map((name) => `${name}/*`), message: I18N_MESSAGE },
+];
+
+/**
+ * Merge the i18n ban INTO an existing `no-restricted-imports` rule entry.
+ * @param {unknown} entry the zone's current ["error", options] tuple
+ * @returns {unknown[]} a tuple carrying both the zone's bans and the i18n ban
+ */
+export function withI18nFrameworkBan(entry) {
+  const options = Array.isArray(entry) && typeof entry[1] === "object" ? entry[1] : {};
+  return [
+    "error",
+    {
+      ...options,
+      paths: [...(options.paths ?? []), ...i18nFrameworkPaths],
+      patterns: [...(options.patterns ?? []), ...i18nFrameworkPatterns],
+    },
+  ];
+}
+
+/** Apply the ban to a zone config without dropping any of its other rules. */
+const banI18n = (config) => ({
+  ...config,
+  rules: {
+    ...config.rules,
+    "no-restricted-imports": withI18nFrameworkBan(config.rules["no-restricted-imports"]),
+  },
+});
+
 /**
  * Mixed packages: every source file MUST live in src/client/** or src/server/**.
  * Without this, a file in e.g. src/shared/ would be completely unzoned.
  */
-/** AGENTS.md §7: no i18n FRAMEWORK ever enters common or backend — catalogs are
- * plain data and the dependency-free common translator serves the server side. */
-export const i18nFrameworkBan = {
-  name: "nukes/boundary/i18n-framework-ban",
-  files: ["src/**/*.{ts,tsx}"],
-  rules: {
-    "no-restricted-imports": [
-      "error",
-      {
-        paths: ["i18next", "react-i18next", "next-intl", "use-intl"].map((name) => ({
-          name,
-          message: `i18n frameworks live in @nukesai-pos/frontend only; common/backend use the dependency-free translator. ${DOC}`,
-        })),
-        patterns: [
-          {
-            group: ["i18next/*", "react-i18next/*", "next-intl/*", "use-intl/*"],
-            message: `i18n frameworks live in @nukesai-pos/frontend only. ${DOC}`,
-          },
-        ],
-      },
-    ],
-  },
-};
-
 export const mixedStructureZone = {
   name: "nukes/boundary/mixed-structure",
   files: ["src/**/*.{ts,tsx}"],
@@ -264,11 +286,11 @@ export function boundaries({ packageDir, zone }) {
   switch (zone) {
     case "server":
       // Whole package is server code, not just src/server/**.
-      return [...base, { ...serverZone, files: ["src/**/*.{ts,tsx}"] }, i18nFrameworkBan];
+      return [...base, banI18n({ ...serverZone, files: ["src/**/*.{ts,tsx}"] })];
     case "client":
       return [...base, { ...clientZone, files: ["src/**/*.{ts,tsx}"] }];
     case "isomorphic":
-      return [...base, isomorphicZone, i18nFrameworkBan];
+      return [...base, banI18n(isomorphicZone)];
     case "mixed":
       return [...base, serverZone, clientZone, mixedStructureZone];
     default:

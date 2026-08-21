@@ -19,6 +19,11 @@ import { posCoreRouter } from "@nukesai-pos/backend/trpc";
 const pos = await getPos();
 
 export const { GET, POST, PUT, PATCH, DELETE } = createPosApi(pos, posCoreRouter, {
+  // The Scalar page and the OpenAPI document default to DEVELOPMENT ONLY —
+  // they are unauthenticated and Scalar pulls its renderer from a CDN into this
+  // origin. This fixture publishes them deliberately; a real deployment should
+  // decide, and pin \`docs.cdn\` if it says yes.
+  surfaces: { docs: true },
   docs: { title: "Nukes AI POS API" },
 });
 
@@ -33,19 +38,15 @@ import type { ReactElement, ReactNode } from "react";
 
 import { routing } from "../../i18n/routing";
 
-export const metadata = {
-  title: "Nukes POS Example",
-  description: "Consumer fixture for the @nukesai-pos packages.",
-};
-
 export function generateStaticParams(): { locale: string }[] {
   return routing.locales.map((locale) => ({ locale }));
 }
 
 /**
- * Root layout lives under [locale] (next-intl routed mode). PosIntl inherits
- * locale+messages from the request config server-side and re-declares the POS
- * fallback behavior on the client — one tag, zero props.
+ * Locale segment layout — NESTED inside your own root layout, so your <html>,
+ * <body> and metadata stay yours. Passing \`locale\` is what makes the subtree
+ * statically renderable: PosIntl primes next-intl's request cache with it, and
+ * without that every page below falls back to reading request headers.
  */
 export default async function LocaleLayout({
   children,
@@ -57,13 +58,7 @@ export default async function LocaleLayout({
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
 
-  return (
-    <html lang={locale}>
-      <body>
-        <PosIntl>{children}</PosIntl>
-      </body>
-    </html>
-  );
+  return <PosIntl locale={locale}>{children}</PosIntl>;
 }
 `;
 

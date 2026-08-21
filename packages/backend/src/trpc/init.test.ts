@@ -124,8 +124,10 @@ const makeZodError = (): z.ZodError => {
 
 // tRPC hands the formatter its DEFAULT shape; the POS fields are what the
 // formatter ADDS.
-const makeShape = (): TRPCDefaultErrorShape => ({
-  message: "errors.internal",
+const LEAKY = "pg: password authentication failed for user pos_app";
+
+const makeShape = (message = LEAKY): TRPCDefaultErrorShape => ({
+  message,
   code: -32603,
   data: {
     code: "INTERNAL_SERVER_ERROR",
@@ -141,9 +143,9 @@ const formatterCtx = (isDev: boolean): PosTrpcContext =>
 describe("posErrorFormatter", () => {
   it("flattens a ZodError cause and strips the stack outside dev", () => {
     const zodError = makeZodError();
-    const error = new TRPCError({ code: "BAD_REQUEST", cause: zodError });
+    const error = new TRPCError({ code: "UNPROCESSABLE_CONTENT", cause: zodError });
     const result = posErrorFormatter({ shape: makeShape(), error, ctx: formatterCtx(false) });
-    expect(result.message).toBe("errors.internal");
+    expect(result.message).toBe(LEAKY); // a 422 keeps its (already safe) message
     expect(result.code).toBe(-32603);
     expect(result.data.zod).toEqual(z.flattenError(zodError));
     expect(result.data.appCode).toBeNull();
@@ -163,6 +165,28 @@ describe("posErrorFormatter", () => {
     const error = new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const result = posErrorFormatter({ shape: makeShape(), error, ctx: formatterCtx(true) });
     expect(result.data.stack).toBe("secret-stack");
+  });
+
+  it("COLLAPSES an internal message outside dev, and keeps it in dev", async () => {
+    const error = new TRPCError({ code: "INTERNAL_SERVER_ERROR", cause: new Error(LEAKY) });
+    const prod = posErrorFormatter({ shape: makeShape(), error, ctx: formatterCtx(false) });
+    // tRPC copies cause.message onto the shape; shipping it would hand the
+    // client a database credential error verbatim.
+    expect(prod.message).toBe("errors.internal");
+    expect(prod.message).not.toContain("password");
+
+    const dev = posErrorFormatter({ shape: makeShape(), error, ctx: formatterCtx(true) });
+    expect(dev.message).toBe(LEAKY);
+    await Promise.resolve();
+  });
+
+  it("never ships OUTPUT-schema issues: only input validation may surface zod", () => {
+    // An output-schema failure arrives as INTERNAL_SERVER_ERROR with a ZodError
+    // cause; flattening it would leak the internal DTO's field paths.
+    const error = new TRPCError({ code: "INTERNAL_SERVER_ERROR", cause: makeZodError() });
+    const result = posErrorFormatter({ shape: makeShape(), error, ctx: formatterCtx(false) });
+    expect(result.data.zod).toBeNull();
+    expect(result.message).toBe("errors.internal");
   });
 
   it("returns nulls for a plain error without ctx", () => {

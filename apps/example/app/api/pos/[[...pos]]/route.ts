@@ -11,6 +11,11 @@ import { posCoreRouter } from "@nukesai-pos/backend/trpc";
 const pos = await getPos();
 
 export const { GET, POST, PUT, PATCH, DELETE } = createPosApi(pos, posCoreRouter, {
+  // The Scalar page and the OpenAPI document default to DEVELOPMENT ONLY —
+  // they are unauthenticated and Scalar pulls its renderer from a CDN into this
+  // origin. This fixture publishes them deliberately; a real deployment should
+  // decide, and pin `docs.cdn` if it says yes.
+  surfaces: { docs: true },
   docs: { title: "Nukes AI POS API" },
 });
 

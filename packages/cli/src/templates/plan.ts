@@ -49,7 +49,9 @@ export const routerBlocks = (
   const active = [
     ...POS_CORE_ROUTERS,
     ...features
-      .map((name) => registry[name])
+      // hasOwn guard: a bracket read on a plain object resolves "constructor"
+      // to Object itself, which the undefined-filter below would let through.
+      .map((name) => (Object.hasOwn(registry, name) ? registry[name] : undefined))
       .filter((feature): feature is PosFeatureTemplate => feature !== undefined),
   ];
   // POS_CORE_ROUTERS guarantees at least one entry — no empty-block cases.

@@ -86,4 +86,16 @@ describe("planFiles", () => {
     expect(plan.some((file) => file.path.includes("orders.ts"))).toBe(false);
     expect(POS_FEATURES.orders?.routerExport).toBe("ordersRouter");
   });
+
+  it("refuses prototype-chain names as features (constructor, __proto__)", () => {
+    // `in` would accept these and splice `Object: undefined,` into the
+    // customer's router file; Object.hasOwn is what makes the registry a map.
+    for (const hostile of ["constructor", "__proto__", "toString", "hasOwnProperty"]) {
+      const rendered = renderRoutersApp([hostile]);
+      expect(rendered).toContain('import { healthRouter } from "@nukesai-pos/backend/trpc";');
+      expect(rendered).toContain("  health: healthRouter,");
+      expect(rendered).not.toContain("Object:");
+      expect(rendered).not.toContain("undefined,");
+    }
+  });
 });

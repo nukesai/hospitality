@@ -53,7 +53,10 @@ ${NPMRC_SCOPE_LINE}
 export async function runInit(options: InitOptions): Promise<InitReport> {
   const { cwd, dryRun, force, version } = options;
   const features = [...(options.features ?? ["orders"])];
-  const unknown = features.filter((feature) => !(feature in POS_FEATURES));
+  // Object.hasOwn, never `in`: the prototype chain would accept "constructor"
+  // and "__proto__" as feature names and splice garbage into the customer's
+  // router file (verified).
+  const unknown = features.filter((feature) => !Object.hasOwn(POS_FEATURES, feature));
   if (unknown.length > 0) {
     throw new Error(`Unknown feature(s): ${unknown.join(", ")}`);
   }

@@ -90,14 +90,17 @@ export async function runAdd(
     throw new Error("No nukes-pos.json found. Run `nukes-pos init` first.");
   }
 
-  const unknown = features.filter((feature) => !(feature in registry));
+  // Object.hasOwn, never `in` — see init.ts. The ledger is re-validated too:
+  // a hand-edited or merge-corrupted manifest must not re-corrupt _app.ts.
+  const known = (feature: string): boolean => Object.hasOwn(registry, feature);
+  const unknown = features.filter((feature) => !known(feature));
   if (unknown.length > 0) {
     return { added: [], alreadyPresent: [], unknown };
   }
 
   const alreadyPresent = features.filter((feature) => manifest.features.includes(feature));
   const added = features.filter((feature) => !manifest.features.includes(feature));
-  const nextFeatures = [...manifest.features, ...added];
+  const nextFeatures = [...manifest.features.filter(known), ...added];
 
   const srcDir = manifest.files.some((file) => file.startsWith("src/"));
   const prefix = srcDir ? "src/" : "";

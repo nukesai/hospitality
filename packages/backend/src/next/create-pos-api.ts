@@ -9,6 +9,7 @@ import {
   createOpenApiHandlers,
   createOpenApiJsonHandler,
   createTrpcHandlers,
+  guardBodySize,
   type ApiHandlerConfig,
   type PosRouteHandler,
 } from "./handlers.js";
@@ -23,6 +24,7 @@ export interface PosApiSource {
     readonly BETTER_AUTH_URL: string;
     readonly API_MAX_BODY_BYTES: number;
     readonly POS_API_BASE_PATH: string;
+    readonly NODE_ENV: string;
   };
   readonly auth: { readonly handler: (req: Request) => Promise<Response> };
   readonly logger: LoggerPort;
@@ -32,7 +34,13 @@ export interface PosApiSource {
   };
 }
 
-/** Optional surfaces — flip off what a deployment does not expose. Auth and tRPC are always on. */
+/**
+ * Optional surfaces — flip off what a deployment does not expose. Auth and tRPC
+ * are always on. `docs` and `openApiJson` default to DEVELOPMENT ONLY: the
+ * Scalar page is unauthenticated and loads its renderer from a third-party CDN
+ * into the app's own origin, so it must be an explicit decision to publish it
+ * (pass `surfaces: { docs: true }`, ideally with a pinned `docs.cdn`).
+ */
 export interface PosApiSurfaces {
   readonly rest?: boolean;
   readonly openApiJson?: boolean;
@@ -88,11 +96,13 @@ export function createPosApi(
   options: CreatePosApiOptions = {},
 ): PosApiRouteHandlers {
   const paths = posApiPaths(pos.env.POS_API_BASE_PATH);
+  const publicByDefault = pos.env.NODE_ENV !== "production";
+  const docs_ = options.surfaces?.docs ?? publicByDefault;
   const surfaces: Required<PosApiSurfaces> = {
     rest: options.surfaces?.rest ?? true,
     // Scalar cannot render without the document — docs forces the json surface on.
-    openApiJson: (options.surfaces?.openApiJson ?? true) || (options.surfaces?.docs ?? true),
-    docs: options.surfaces?.docs ?? true,
+    openApiJson: (options.surfaces?.openApiJson ?? publicByDefault) || docs_,
+    docs: docs_,
   };
 
   const onError =
@@ -147,6 +157,10 @@ export function createPosApi(
         return method === "GET" ? index() : METHOD_NOT_ALLOWED("GET");
       }
       if (sub === "/auth" || sub.startsWith("/auth/")) {
+        // better-auth enforces its own trusted origins but no body cap, and
+        // this is the only pre-session surface — apply the size guard here.
+        const tooBig = guardBodySize(req, cfg);
+        if (tooBig !== null) return tooBig;
         // Every method passes through — better-auth's own Next wrapper maps
         // GET/POST/PUT/PATCH/DELETE to auth.handler (verified in 1.7.1 dist).
         return pos.auth.handler(req);
