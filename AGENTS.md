@@ -68,7 +68,8 @@ business logic — inject the port.
 - Every published package: `sideEffects` accurate, `files` allowlist,
   `publishConfig.access: "public"`, `provenance: false` (npm provenance needs a
   PUBLIC source repo; this one is private — revisit if that changes),
-  `license: "UNLICENSED"`, author Nukes AI & Software Solution.
+  `license: "GPL-3.0-or-later"` (every published package ships the full GPL-3
+  text as its own LICENSE file), author Nukes AI & Software Solution.
 - Barrels (`index.ts`) contain re-exports ONLY — logic in an index file breaks
   the coverage exclusion contract.
 - No TypeScript enums (erasableSyntaxOnly); const object + union type.

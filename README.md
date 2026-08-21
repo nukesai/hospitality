@@ -88,3 +88,12 @@ workspace package at runtime.
 Changesets with a **fixed version group** — all four published packages always
 share one version. `pnpm changeset` per user-visible change; the release
 workflow versions and publishes (`public` access) from `main`.
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](./LICENSE).
+
+This is copyleft: an application that installs `@nukesai-pos/*` and distributes
+the result is a derivative work and must be released under the GPL too. If you
+need to embed the POS in a closed-source product, contact
+<info@nukesai.com> about a separate commercial licence.

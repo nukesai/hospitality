@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Nukes AI point-of-sale platform monorepo.",
-  "license": "UNLICENSED",
+  "license": "GPL-3.0-or-later",
   "author": "Nukes AI & Software Solution <info@nukesai.com>",
   "type": "module",
   "scripts": {
