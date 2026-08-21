@@ -169,6 +169,10 @@ export const ROUTER_MARKER_ORDER: readonly string[] = [
   ROUTERS_CLOSE,
 ];
 
+/** True for the ONE ledger entry `add` owns — `init`/`upgrade` must neither
+ *  claim it (it is not in their plan) nor drop it (doctor would go blind). */
+export const isExtensionFile = (file: string): boolean => file.endsWith("server/routers/_app.ts");
+
 /**
  * The EXTENSION file `nukes-pos add` materializes on demand. The DEFAULT
  * consumer has no server/ directory at all — the route file consumes

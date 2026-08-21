@@ -8,6 +8,7 @@ import type pg from "pg";
 import {
   assertRlsEnforcedRole,
   createPosDb,
+  type PosDb,
   dbConfigFromEnv,
   type PosDatabase,
 } from "../adapters/drizzle/client.js";
@@ -75,7 +76,27 @@ export async function createNukesPos(options: CreateNukesPosOptions): Promise<Nu
     }),
     schema,
   );
-  options.onPoolCreated?.(posDb.pool);
+  // Everything from here can reject (the consumer's own pool hook, and the RLS
+  // boot guard, which issues a real query), and getPos() retries a failed boot
+  // — so a boot that dies half-built must tear down what it already created or
+  // every retry strands another pg.Pool until the database runs out of
+  // connections. close() also clears the memoized instance, so the retry gets
+  // a fresh pool rather than the closed one.
+  try {
+    options.onPoolCreated?.(posDb.pool);
+    return await assemble(env, logger, posDb, options);
+  } catch (error) {
+    await posDb.close().catch(() => undefined);
+    throw error;
+  }
+}
+
+async function assemble(
+  env: PosEnv,
+  logger: LoggerPort,
+  posDb: PosDb,
+  options: CreateNukesPosOptions,
+): Promise<NukesPos> {
   // R2 boot guard: in production, refuse to serve on an RLS-exempt role.
   if (env.NODE_ENV === "production") await assertRlsEnforcedRole(posDb.pool);
 

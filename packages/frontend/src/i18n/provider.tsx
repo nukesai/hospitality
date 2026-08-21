@@ -39,7 +39,10 @@ export function PosIntlProvider({ children, ...rest }: PosIntlProviderProps): Re
     ...rest,
     children,
   };
-  return rest.locale === undefined ? (
+  // Falsiness, not `=== undefined`: next-intl throws on any falsy locale, and
+  // its production build strips the message to `undefined` — so `locale=""`
+  // (a common "not loaded yet" value) would surface as `Error: undefined`.
+  return rest.locale === undefined || rest.locale === "" ? (
     <PosIntlFromAncestor {...props} />
   ) : (
     <NextIntlClientProvider {...props} />

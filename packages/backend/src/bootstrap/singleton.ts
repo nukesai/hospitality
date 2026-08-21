@@ -30,7 +30,19 @@ interface VercelFunctions {
   readonly waitUntil?: (promise: Promise<unknown>) => void;
 }
 
-type PosGlobal = typeof globalThis & { __nukesPos?: Promise<NukesPos> };
+type PosGlobal = typeof globalThis & {
+  __nukesPos?: Promise<NukesPos>;
+  /** Wall-clock ms until which a failed boot is NOT retried. */
+  __nukesPosRetryAfter?: number;
+};
+
+/**
+ * How long a failed boot is remembered. Long enough that a flapping database
+ * cannot turn every inbound request into a fresh pool + auth init (each boot
+ * opens connections to the node that is already struggling), short enough that
+ * recovery is a few seconds, not a redeploy.
+ */
+const FAILED_BOOT_COOLDOWN_MS = 1_000;
 
 const boot = async (options: GetPosOptions): Promise<NukesPos> => {
   // The singleton is the DOCUMENTED ambient edge (AGENTS.md §7); every other
@@ -62,14 +74,20 @@ export function getPos(options: GetPosOptions = {}): Promise<NukesPos> {
   if (g.__nukesPos === undefined) {
     const pending = boot(options);
     g.__nukesPos = pending;
-    // A FAILED boot must not be cached: the database being briefly unreachable
-    // at cold start would otherwise poison every later request for the life of
-    // the process. Forget it (only if it is still the current one) so the next
-    // call retries; the attached handler also keeps the rejection "handled"
-    // for callers that never await.
+    // A FAILED boot must not be cached forever: the database being briefly
+    // unreachable at cold start would otherwise poison every later request for
+    // the life of the process. It must not be forgotten INSTANTLY either, or a
+    // sustained outage turns every request into a fresh boot. So: forget it
+    // after a cooldown, and only if it is still the current one. The attached
+    // handler also keeps the rejection "handled" for callers that never await.
     void pending.catch(() => {
-      if (g.__nukesPos === pending) delete g.__nukesPos;
+      if (g.__nukesPos !== pending) return;
+      g.__nukesPosRetryAfter = Date.now() + FAILED_BOOT_COOLDOWN_MS;
     });
+  } else if (g.__nukesPosRetryAfter !== undefined && Date.now() >= g.__nukesPosRetryAfter) {
+    delete g.__nukesPos;
+    delete g.__nukesPosRetryAfter;
+    return getPos(options);
   }
   return g.__nukesPos;
 }
@@ -79,6 +97,7 @@ export async function disposePos(): Promise<void> {
   const g = globalThis as PosGlobal;
   const pending = g.__nukesPos;
   delete g.__nukesPos;
+  delete g.__nukesPosRetryAfter;
   if (pending !== undefined) {
     const pos = await pending.catch(() => null);
     if (pos !== null) await pos.shutdown();

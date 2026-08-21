@@ -1,7 +1,7 @@
 import { assertCleanWorktree } from "../utils/git.js";
 import { readManifest, writeManifest } from "../utils/manifest.js";
 import { writeGenerated, type WriteOutcome } from "../utils/generated.js";
-import { planFiles } from "../templates/plan.js";
+import { isExtensionFile, planFiles } from "../templates/plan.js";
 
 export interface UpgradeOptions {
   readonly cwd: string;
@@ -47,9 +47,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     await writeManifest(options.cwd, {
       ...manifest,
       version: options.version,
-      // Preserve ledger entries the plan does not own (e.g. the `add`-created
-      // extension file) — dropping them would blind `doctor` to those files.
-      files: [...new Set([...files.map((file) => file.path), ...manifest.files])],
+      // Plan-owned paths are replaced; the `add`-owned extension file is
+      // carried over. Dropping it would blind `doctor` to a file on disk;
+      // unioning everything would strand the other i18n mode's paths forever.
+      files: [
+        ...new Set([...files.map((file) => file.path), ...manifest.files.filter(isExtensionFile)]),
+      ],
     });
   }
 

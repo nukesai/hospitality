@@ -9,7 +9,7 @@ import { ensureEnvExample } from "../utils/env-file.js";
 import { writeGenerated, type WriteResult } from "../utils/generated.js";
 import { createManifest, MANIFEST_NAME, readManifest, writeManifest } from "../utils/manifest.js";
 import { patchNextConfig } from "../utils/patch.js";
-import { planFiles, POS_FEATURES } from "../templates/plan.js";
+import { isExtensionFile, planFiles, POS_FEATURES } from "../templates/plan.js";
 
 export interface InitOptions {
   readonly cwd: string;
@@ -111,12 +111,19 @@ export async function runInit(options: InitOptions): Promise<InitReport> {
   const manifest = {
     ...(previous ?? createManifest(version)),
     version,
-    // UNION, never replace: `add` records the extension file and its features
-    // in the same ledger, and init is a documented repair/idempotent flow —
-    // resetting the ledger would blind `doctor` to files that are still on
-    // disk (the same invariant runUpgrade keeps).
-    features: [...new Set([...features, ...(previous?.features ?? [])])],
-    files: [...new Set([...plan.map((file) => file.path), ...(previous?.files ?? [])])],
+    // `--features` stays AUTHORITATIVE (unioning made the set grow monotonically
+    // and re-added features the user had removed).
+    features,
+    // Plan-owned paths are REPLACED so switching i18n modes actually switches
+    // (a union pinned the old mode's `[locale]` paths in the ledger forever,
+    // and upgrade re-derives the mode from them). Only what `add` owns is
+    // carried over — dropping that would blind `doctor` to a file on disk.
+    files: [
+      ...new Set([
+        ...plan.map((file) => file.path),
+        ...(previous?.files ?? []).filter(isExtensionFile),
+      ]),
+    ],
   };
   if (!dryRun) await writeManifest(cwd, manifest);
   results.push({

@@ -99,9 +99,10 @@ program
       for (const feature of report.added) log.success(`added    ${feature}`);
       for (const feature of report.alreadyPresent) log.info(`skipped  ${feature} (already added)`);
       if (report.extensionCreated === true && report.extensionFile !== undefined) {
-        log.success(`created  ${report.extensionFile}`);
-        log.info("Point app/api/pos/[[...pos]]/route.ts at its `appRouter` to use it.");
+        log.success(`${options.dryRun ? "would create" : "created"}  ${report.extensionFile}`);
+        log.info("Point your app/api/pos route at its `appRouter` to use it.");
       }
+      if (options.dryRun) outro("Dry run — nothing was written.");
     }
   });
 

@@ -48,6 +48,19 @@ describe("PosIntlProvider", () => {
     expect(screen.getByTestId("known")).toHaveTextContent("Ready");
   });
 
+  it("inherits on an EMPTY locale too (next-intl throws on any falsy value)", () => {
+    // In next-intl's production build the "couldn't infer" message is stripped,
+    // so a falsy locale surfaces as `Error: undefined` with no diagnostic.
+    render(
+      <PosIntlProvider locale="en" messages={en}>
+        <PosIntlProvider locale="">
+          <Probe />
+        </PosIntlProvider>
+      </PosIntlProvider>,
+    );
+    expect(screen.getByTestId("known")).toHaveTextContent("Ready");
+  });
+
   it("inherits even when the caller passes locale={undefined} explicitly", () => {
     // next-intl's client provider throws "Couldn't infer the `locale` prop"
     // BEFORE merging ancestor context, so an own `locale: undefined` key must

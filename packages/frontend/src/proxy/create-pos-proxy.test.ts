@@ -50,4 +50,27 @@ describe("createPosProxy", () => {
     const response = await createPosProxy()(new NextRequest("http://localhost:3100/api/pos/trpc"));
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
+
+  it("normalizes a degenerate apiBasePath instead of disabling itself", async () => {
+    // "" would make `pathname.startsWith("")` true for every request — the
+    // whole i18n layer silently off. A trailing slash breaks the other way.
+    const empty = createPosProxy(undefined, { apiBasePath: "" });
+    expect(
+      (await empty(new NextRequest("http://localhost:3100/"))).headers.get("x-middleware-next"),
+    ).toBeNull();
+
+    const trailing = createPosProxy(undefined, { apiBasePath: "/pos-api/" });
+    const api = await trailing(new NextRequest("http://localhost:3100/pos-api/trpc"));
+    expect(api.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("compares the DECODED path, like next-intl does", async () => {
+    const proxy = createPosProxy(undefined, { apiBasePath: "/pos-api" });
+    // Encoded API path must still be recognised as the API...
+    const encoded = await proxy(new NextRequest("http://localhost:3100/%70os-api/trpc"));
+    expect(encoded.headers.get("x-middleware-next")).toBe("1");
+    // ...and an encoded traversal must not smuggle a page path past i18n.
+    const traversal = await proxy(new NextRequest("http://localhost:3100/pos-api%2f..%2fadmin"));
+    expect(traversal.headers.get("x-middleware-next")).toBeNull();
+  });
 });

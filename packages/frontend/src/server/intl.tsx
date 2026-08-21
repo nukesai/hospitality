@@ -44,10 +44,10 @@ export function PosIntl({ children, locale, messages }: PosIntlProps): ReactElem
   // (the provider's server build, PosAdminShell, packaged RSCs) then resolves
   // from the cache instead of the request headers.
   // eslint-disable-next-line @typescript-eslint/no-deprecated -- deliberate compatibility bridge: next-intl points at next/root-params, which is Next-16-only and unavailable to apps still on the [locale] segment. setRequestLocale is the supported path for them and is a no-op cache write; the successor is tracked in .nukes/RESEARCH-INTEGRATION.md.
-  if (locale !== undefined) setRequestLocale(locale);
+  if (locale !== undefined && locale !== "") setRequestLocale(locale);
   return (
     <Provider
-      {...(locale === undefined ? {} : { locale })}
+      {...(locale === undefined || locale === "" ? {} : { locale })}
       {...(messages === undefined ? {} : { messages })}
     >
       <PosIntlProvider>{children}</PosIntlProvider>

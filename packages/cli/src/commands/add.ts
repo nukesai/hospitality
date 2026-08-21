@@ -129,7 +129,10 @@ export async function runAdd(
     features: nextFeatures,
     files: [...new Set([...manifest.files, appRelative])],
   };
-  if (!options.dryRun) await writeManifest(options.cwd, next);
+  const ledgerChanged =
+    next.features.length !== manifest.features.length
+    || next.files.length !== manifest.files.length;
+  if (!options.dryRun && ledgerChanged) await writeManifest(options.cwd, next);
 
   return {
     added,

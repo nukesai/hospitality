@@ -116,4 +116,44 @@ describe("patchNextConfig", () => {
     await writeFile(configPath, "export const config = {};\n");
     await expect(patchNextConfig(configPath, false)).rejects.toThrow(/not a config/);
   });
+
+  it("PRESERVES `satisfies NextConfig` (the shape Next's docs recommend)", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.ts");
+    await writeFile(
+      configPath,
+      'import type { NextConfig } from "next";\n\nexport default { reactStrictMode: true } satisfies NextConfig;\n',
+    );
+
+    expect(await patchNextConfig(configPath, false)).toBe(true);
+    const patched = await readFile(configPath, "utf8");
+    // Dropping the annotation would also strand `import type { NextConfig }`,
+    // which fails the consumer's own noUnusedLocals.
+    expect(patched).toContain("satisfies NextConfig");
+    expect(patched).toContain("withNukesPos({ reactStrictMode: true })");
+  });
+
+  it("PRESERVES an `as NextConfig` assertion", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.ts");
+    await writeFile(
+      configPath,
+      'import type { NextConfig } from "next";\n\nexport default { reactStrictMode: true } as NextConfig;\n',
+    );
+
+    expect(await patchNextConfig(configPath, false)).toBe(true);
+    const patched = await readFile(configPath, "utf8");
+    expect(patched).toContain("as NextConfig");
+    expect(patched).toContain("withNukesPos({ reactStrictMode: true })");
+  });
+
+  it("stays idempotent on an annotated config", async () => {
+    const cwd = await makeDir();
+    const configPath = path.join(cwd, "next.config.ts");
+    await writeFile(configPath, "export default { a: 1 } satisfies Record<string, number>;\n");
+    await patchNextConfig(configPath, false);
+    const once = await readFile(configPath, "utf8");
+    expect(await patchNextConfig(configPath, false)).toBe(false);
+    expect(await readFile(configPath, "utf8")).toBe(once);
+  });
 });

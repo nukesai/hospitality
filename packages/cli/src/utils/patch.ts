@@ -68,8 +68,36 @@ export async function patchNextConfig(configPath: string, dryRun: boolean): Prom
     mod.imports.$prepend({ from: WRAPPER_SOURCE, imported: WRAPPER });
   }
   if (!alreadyWrapped) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- magicast's module proxy is `any`-typed by design
-    mod.exports.default = builders.functionCall(WRAPPER, mod.exports.default);
+    // `export default {...} satisfies NextConfig` (and the `as NextConfig`
+    // form) is what Next's own docs recommend, and magicast unwraps both to the
+    // inner object — so reassigning `mod.exports.default` would DROP the
+    // annotation and strand the now-unused `import type { NextConfig }`.
+    // Wrap the inner expression in place instead, leaving the cast intact.
+    // magicast's AST is loosely typed; this is the ESTree shape it produces.
+    interface AstNode {
+      type: string;
+      declaration?: AstNode;
+      expression?: AstNode;
+    }
+    const program = mod.$ast as unknown as { body: AstNode[] };
+    const declaration = program.body.find(
+      (node) => node.type === "ExportDefaultDeclaration",
+    )?.declaration;
+    const annotated =
+      declaration?.type === "TSSatisfiesExpression" || declaration?.type === "TSAsExpression";
+    if (annotated && declaration.expression !== undefined) {
+      // Built by hand: passing an existing AST node to builders.functionCall
+      // makes magicast try to serialize it as a literal ("circular reference").
+      declaration.expression = {
+        type: "CallExpression",
+        callee: { type: "Identifier", name: WRAPPER },
+        arguments: [declaration.expression],
+        optional: false,
+      } as unknown as AstNode;
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- magicast's module proxy is `any`-typed by design
+      mod.exports.default = builders.functionCall(WRAPPER, mod.exports.default);
+    }
   }
 
   if (!dryRun) await writeFile(mod, configPath);

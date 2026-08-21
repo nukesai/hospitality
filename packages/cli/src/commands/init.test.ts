@@ -163,7 +163,7 @@ describe("runInit", () => {
     expect(existsSync(path.join(fresh, ".npmrc"))).toBe(false);
   });
 
-  it("UNIONS the ledger on re-run: add-owned entries and features survive", async () => {
+  it("keeps the add-owned ledger entry on re-run, and keeps --features authoritative", async () => {
     const cwd = await makeApp();
     await runInit({ cwd, dryRun: false, force: true, version: "0.0.0" });
     const { runAdd } = await import("./add.js");
@@ -174,11 +174,27 @@ describe("runInit", () => {
     );
 
     // Re-running init is a documented repair flow (doctor's own error text
-    // tells users to) — it must not evict what `add` owns.
+    // tells users to) — it must not evict the file `add` owns...
     await runInit({ cwd, dryRun: false, force: true, version: "0.1.0" });
     const manifest = await readManifest(cwd);
     expect(manifest?.files).toContain("server/routers/_app.ts");
-    expect(manifest?.features).toContain("kds");
+    // ...but the requested feature set IS authoritative: unioning made the set
+    // grow forever and silently re-added features the user had removed.
+    expect(manifest?.features).toEqual(["orders"]);
+  });
+
+  it("switching i18n modes REPLACES the plan-owned paths", async () => {
+    const cwd = await makeApp();
+    await runInit({ cwd, dryRun: false, force: true, version: "0.0.0", i18nRouting: true });
+    expect((await readManifest(cwd))?.files).toContain("proxy.ts");
+
+    // Unioning pinned the old mode's paths in the ledger forever, and upgrade
+    // re-derives the mode from them — so the switch could never take effect.
+    await runInit({ cwd, dryRun: false, force: true, version: "0.0.0", i18nRouting: false });
+    const files = (await readManifest(cwd))?.files ?? [];
+    expect(files).not.toContain("proxy.ts");
+    expect(files.some((file) => file.includes("[locale]"))).toBe(false);
+    expect(files).toContain("app/(nukes-pos)/layout.tsx");
   });
 
   it("REFUSES an app whose next.config cannot be wrapped, before writing anything", async () => {

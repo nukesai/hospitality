@@ -56,17 +56,30 @@ describe("getPos", () => {
     expect(bootCalls[1]?.waitUntil).toBeUndefined();
   });
 
-  it("never caches a FAILED boot: the next call retries and can succeed", async () => {
-    bootState.fail = true;
-    await expect(getPos({ env: ENV })).rejects.toThrow("boot exploded");
-    // A transient outage (db unreachable at cold start) must not poison the
-    // process — the cached promise is forgotten, so the retry boots for real.
-    bootState.fail = false;
-    await expect(getPos({ env: ENV })).resolves.toBeDefined();
-    expect(bootCalls).toHaveLength(2);
-    // ...and the successful instance IS cached again.
-    expect(getPos({ env: ENV })).toBe(getPos({ env: ENV }));
-    expect(bootCalls).toHaveLength(2);
+  it("retries a FAILED boot after a cooldown, not on every request", async () => {
+    vi.useFakeTimers();
+    try {
+      bootState.fail = true;
+      await expect(getPos({ env: ENV })).rejects.toThrow("boot exploded");
+
+      // Inside the cooldown the cached rejection is reused: a sustained outage
+      // must not turn every inbound request into a fresh pool + auth init
+      // aimed at the database that is already struggling.
+      await expect(getPos({ env: ENV })).rejects.toThrow("boot exploded");
+      expect(bootCalls).toHaveLength(1);
+
+      // Past it, the process heals itself — no redeploy required.
+      bootState.fail = false;
+      vi.setSystemTime(Date.now() + 5_000);
+      await expect(getPos({ env: ENV })).resolves.toBeDefined();
+      expect(bootCalls).toHaveLength(2);
+
+      // ...and the successful instance IS cached again.
+      expect(getPos({ env: ENV })).toBe(getPos({ env: ENV }));
+      expect(bootCalls).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps a rejected boot's identity stable for concurrent callers", async () => {
