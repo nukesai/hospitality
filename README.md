@@ -49,6 +49,8 @@ Requires Node ≥ 24.18 and pnpm 11.10 (`corepack enable`).
 
 ```bash
 pnpm install
+cp .env.example .env                        # docker compose + migration scripts
+ln -s ../../.env apps/example/.env.local    # `next start` reads the APP's env, not the root's
 pnpm build          # tsdown package builds + example next build (publint/attw inside)
 pnpm check-types    # TypeScript 7 (Go-native tsc)
 pnpm lint           # ESLint 10 flat config, type-aware, boundary zones

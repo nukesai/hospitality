@@ -134,6 +134,11 @@ jobs:
       - name: Start the Docker stack (postgres + redis + mailpit)
         run: |
           cp .env.example .env
+          # `next start` reads apps/example/.env*, NOT the repo root — the root
+          # copy above only serves docker compose and the migration scripts.
+          # Locally this is a symlink a developer creates (see README); CI has
+          # to make it explicitly or the app boots with no environment.
+          cp .env.example apps/example/.env.local
           docker compose -f docker/compose.yaml --env-file .env up -d --wait
 
       - name: Apply migrations and seed
