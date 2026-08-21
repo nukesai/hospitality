@@ -1,5 +1,10 @@
 import { noopLogger } from "@nukesai-pos/common";
-import { TRPCError, type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
+import {
+  TRPCError,
+  type inferRouterError,
+  type inferRouterInputs,
+  type inferRouterOutputs,
+} from "@trpc/server";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -210,6 +215,17 @@ const badStatusIn: CoreInputs["orders"]["updateStatus"] = {
 // @ts-expect-error -- outputs are wire DTOs: total is a string, never a number
 const badTotalOut: CoreOutputs["orders"]["create"]["total"] = 12.5;
 
+// The ERROR contract: initTRPC must INFER our shape, not fall back to
+// DefaultErrorShape (it silently does whenever `code` is widened past tRPC's
+// literal union — see PosErrorShape). Clients type `error.data` off this.
+type CoreError = inferRouterError<typeof posCoreRouter>;
+const goodAppCode: CoreError["data"]["appCode"] = null;
+const goodZod: CoreError["data"]["zod"] = { formErrors: [], fieldErrors: {} };
+// @ts-expect-error -- requestId correlates with the server log line: a string
+const badRequestId: CoreError["data"]["requestId"] = 42;
+// @ts-expect-error -- tRPC's own fields survive alongside ours
+const badHttpStatus: CoreError["data"]["httpStatus"] = "500";
+
 // The EXTENSION path consumers get from `nukes-pos add`: app-local procedures
 // merge with the packaged core on the SAME root, fully typed.
 const contractCustom = posTrpc.router({
@@ -221,3 +237,4 @@ type MergedIn = inferRouterInputs<typeof contractMerged>;
 const badLocal: MergedIn["local"] = {};
 const goodBoth: [MergedIn["local"], MergedIn["health"]["check"]] = [{ q: "x" }, { echo: "hi" }];
 void [badCreate, goodCreate, badStatusIn, badTotalOut, badLocal, goodBoth, contractMerged];
+void [goodAppCode, goodZod, badRequestId, badHttpStatus];

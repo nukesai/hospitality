@@ -56,6 +56,29 @@ describe("getPos", () => {
     expect(bootCalls[1]?.waitUntil).toBeUndefined();
   });
 
+  it("never caches a FAILED boot: the next call retries and can succeed", async () => {
+    bootState.fail = true;
+    await expect(getPos({ env: ENV })).rejects.toThrow("boot exploded");
+    // A transient outage (db unreachable at cold start) must not poison the
+    // process — the cached promise is forgotten, so the retry boots for real.
+    bootState.fail = false;
+    await expect(getPos({ env: ENV })).resolves.toBeDefined();
+    expect(bootCalls).toHaveLength(2);
+    // ...and the successful instance IS cached again.
+    expect(getPos({ env: ENV })).toBe(getPos({ env: ENV }));
+    expect(bootCalls).toHaveLength(2);
+  });
+
+  it("keeps a rejected boot's identity stable for concurrent callers", async () => {
+    bootState.fail = true;
+    const first = getPos({ env: ENV });
+    const second = getPos({ env: ENV });
+    expect(first).toBe(second);
+    await expect(first).rejects.toThrow("boot exploded");
+    await expect(second).rejects.toThrow("boot exploded");
+    expect(bootCalls).toHaveLength(1);
+  });
+
   it("lets explicit hook overrides win over the Vercel wiring", async () => {
     const onPoolCreated = vi.fn();
     await getPos({ env: { ...ENV, VERCEL: "1" }, onPoolCreated });
@@ -70,6 +93,16 @@ describe("disposePos", () => {
     expect(shutdown).toHaveBeenCalledTimes(1);
     await getPos({ env: ENV });
     expect(bootCalls).toHaveLength(2);
+  });
+
+  it("survives dispose racing a boot that then fails", async () => {
+    bootState.fail = true;
+    const booting = getPos({ env: ENV }); // in flight
+    const disposing = disposePos(); // takes the pending promise, clears the slot
+    await expect(booting).rejects.toThrow("boot exploded");
+    await expect(disposing).resolves.toBeUndefined();
+    // getPos's own cleanup must not delete a slot it no longer owns.
+    expect(shutdown).not.toHaveBeenCalled();
   });
 
   it("is safe when nothing was booted and when boot failed", async () => {

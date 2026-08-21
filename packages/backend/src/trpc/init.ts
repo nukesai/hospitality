@@ -1,7 +1,13 @@
 import type { AnalyticsPort, LoggerPort } from "@nukesai-pos/common";
 import { AppError } from "@nukesai-pos/common";
 import type { Translator } from "@nukesai-pos/common/i18n";
-import type { TRPCError } from "@trpc/server";
+import type {
+  TRPCDefaultErrorData,
+  TRPCDefaultErrorShape,
+  TRPCError,
+  TRPCErrorShape,
+  TRPC_ERROR_CODE_NUMBER,
+} from "@trpc/server";
 import type { OpenApiMeta } from "trpc-to-openapi";
 import { z, ZodError } from "zod";
 
@@ -76,15 +82,39 @@ export async function createTRPCContext(req: Request, deps: PosTrpcDeps): Promis
   };
 }
 
-export interface PosErrorShape {
-  readonly message: string;
-  readonly code: number;
-  readonly data: Record<string, unknown>;
+/** `z.flattenError` output, declared locally so the public dts never reaches
+ *  into zod internals. */
+export interface PosFlattenedZodError {
+  readonly formErrors: readonly string[];
+  readonly fieldErrors: Readonly<Record<string, readonly string[] | undefined>>;
+}
+
+/** tRPC's default error data PLUS the POS contract every client can rely on. */
+export interface PosErrorData extends TRPCDefaultErrorData {
+  /** Flattened validation issues on a 422, null otherwise. */
+  readonly zod: PosFlattenedZodError | null;
+  /** `AppError.code` when the failure was a domain error, null otherwise. */
+  readonly appCode: string | null;
+  /** Correlates the client error with the server log line. */
+  readonly requestId: string | undefined;
+}
+
+/**
+ * The shipped error shape. `code` MUST stay tRPC's literal-union type: widening
+ * it to `number` breaks the `TShape extends TRPCErrorShape` constraint, and
+ * initTRPC then silently falls back to DefaultErrorShape — dropping zod/appCode/
+ * requestId from every client's `error.data` type (shipped broken until
+ * 2026-08-21; the compile contract in routers.test.ts pins it).
+ */
+export interface PosErrorShape extends TRPCErrorShape<PosErrorData> {
+  message: string;
+  code: TRPC_ERROR_CODE_NUMBER;
 }
 
 /** Passed by the scaffold into initTRPC's create({ errorFormatter: posErrorFormatter }). */
 export function posErrorFormatter(opts: {
-  readonly shape: PosErrorShape;
+  /** tRPC always hands the formatter its DEFAULT shape. */
+  readonly shape: TRPCDefaultErrorShape;
   readonly error: TRPCError;
   readonly ctx: PosTrpcContext | undefined;
 }): PosErrorShape {

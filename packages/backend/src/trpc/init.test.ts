@@ -1,12 +1,12 @@
 import { AppError, type LoggerPort } from "@nukesai-pos/common";
 import type { Translator } from "@nukesai-pos/common/i18n";
-import { TRPCError } from "@trpc/server";
+import { TRPCError, type TRPCDefaultErrorShape } from "@trpc/server";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { resolveLocale } from "../i18n/resolve-locale.js";
 import { createTRPCContext, posErrorFormatter } from "./init.js";
-import type { PosErrorShape, PosTrpcContext, PosTrpcDeps } from "./init.js";
+import type { PosTrpcContext, PosTrpcDeps } from "./init.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -122,7 +122,9 @@ const makeZodError = (): z.ZodError => {
   return parsed.error;
 };
 
-const makeShape = (): PosErrorShape => ({
+// tRPC hands the formatter its DEFAULT shape; the POS fields are what the
+// formatter ADDS.
+const makeShape = (): TRPCDefaultErrorShape => ({
   message: "errors.internal",
   code: -32603,
   data: {

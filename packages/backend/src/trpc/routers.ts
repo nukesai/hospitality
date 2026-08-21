@@ -1,12 +1,11 @@
 import {
   TRPCError,
   type TRPCBuiltRouter,
-  type TRPCDefaultErrorShape,
   type TRPCMutationProcedure,
   type TRPCQueryProcedure,
 } from "@trpc/server";
 
-import type { PosTrpcContext, PosTrpcMeta } from "./init.js";
+import type { PosErrorShape, PosTrpcContext, PosTrpcMeta } from "./init.js";
 import { branchProcedure, posTrpc, publicProcedure } from "./root.js";
 import {
   healthCheck,
@@ -44,7 +43,7 @@ import {
 interface PosRootTypes {
   ctx: PosTrpcContext;
   meta: PosTrpcMeta;
-  errorShape: TRPCDefaultErrorShape;
+  errorShape: PosErrorShape;
   transformer: true;
 }
 

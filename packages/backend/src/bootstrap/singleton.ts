@@ -59,7 +59,18 @@ const boot = async (options: GetPosOptions): Promise<NukesPos> => {
 // eslint-disable-next-line @typescript-eslint/promise-function-async
 export function getPos(options: GetPosOptions = {}): Promise<NukesPos> {
   const g = globalThis as PosGlobal;
-  g.__nukesPos ??= boot(options);
+  if (g.__nukesPos === undefined) {
+    const pending = boot(options);
+    g.__nukesPos = pending;
+    // A FAILED boot must not be cached: the database being briefly unreachable
+    // at cold start would otherwise poison every later request for the life of
+    // the process. Forget it (only if it is still the current one) so the next
+    // call retries; the attached handler also keeps the rejection "handled"
+    // for callers that never await.
+    void pending.catch(() => {
+      if (g.__nukesPos === pending) delete g.__nukesPos;
+    });
+  }
   return g.__nukesPos;
 }
 
