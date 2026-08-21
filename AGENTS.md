@@ -6,7 +6,7 @@ rule is not enforced by a machine yet, propose the enforcement in the same PR.
 
 ## 1. What this repo is
 
-A **package factory** (pnpm + turborepo). It publishes proprietary, restricted
+A **package factory** (pnpm + turborepo). It publishes public
 npm packages under `@nukesai-pos/*` that add a POS backend (API) and admin
 panel to any existing Next.js 16 app via `npx @nukesai-pos/cli init`.
 It is NOT an application; `apps/example` exists only as the E2E target and
@@ -66,8 +66,10 @@ business logic — inject the port.
   preserves `"use client"`), `dts: { generator: "oxc" }`, `exports: false`
   (exports maps are hand-written; a build must never rewrite package.json).
 - Every published package: `sideEffects` accurate, `files` allowlist,
-  `publishConfig.access: "restricted"`, `provenance: false`,
-  `license: "UNLICENSED"`, author Nukes AI & Software Solution.
+  `publishConfig.access: "public"`, `provenance: false` (npm provenance needs a
+  PUBLIC source repo; this one is private — revisit if that changes),
+  `license: "GPL-3.0-or-later"` (every published package ships the full GPL-3
+  text as its own LICENSE file), author Nukes AI & Software Solution.
 - Barrels (`index.ts`) contain re-exports ONLY — logic in an index file breaks
   the coverage exclusion contract.
 - No TypeScript enums (erasableSyntaxOnly); const object + union type.

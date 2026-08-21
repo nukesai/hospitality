@@ -4,7 +4,7 @@ Package-based point-of-sale platform for restaurants, bars and hotels — built 
 **Nukes AI & Software Solution** (<info@nukesai.com>). Proprietary; see [LICENSE](./LICENSE).
 
 This repository is a **package factory**, not an app. It publishes private,
-restricted npm packages under the `@nukesai-pos` scope that drop a full POS
+public npm packages under the `@nukesai-pos` scope that drop a full POS
 backend (API) and admin panel into **any existing Next.js 16 application**:
 
 | Package                                        | Runtime         | What it is                                           |
@@ -87,4 +87,13 @@ workspace package at runtime.
 
 Changesets with a **fixed version group** — all four published packages always
 share one version. `pnpm changeset` per user-visible change; the release
-workflow versions and publishes (`restricted` access) from `main`.
+workflow versions and publishes (`public` access) from `main`.
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](./LICENSE).
+
+This is copyleft: an application that installs `@nukesai-pos/*` and distributes
+the result is a derivative work and must be released under the GPL too. If you
+need to embed the POS in a closed-source product, contact
+<info@nukesai.com> about a separate commercial licence.

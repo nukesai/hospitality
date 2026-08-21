@@ -117,16 +117,6 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorReport> {
     }
   }
 
-  const npmrcPath = path.resolve(options.cwd, ".npmrc");
-  if (!existsSync(npmrcPath)) {
-    errors.push(".npmrc is missing — @nukesai-pos packages will fail to install.");
-  } else {
-    const npmrc = await readFile(npmrcPath, "utf8");
-    if (!npmrc.includes("@nukesai-pos:registry=")) {
-      errors.push(".npmrc has no @nukesai-pos registry entry.");
-    }
-  }
-
   const env = await readEnvFiles(options.cwd);
   for (const name of REQUIRED_ENV) {
     const value = env.get(name);

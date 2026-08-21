@@ -29,7 +29,6 @@ describe("runInit", () => {
 
     expect(report.created).toEqual(
       expect.arrayContaining([
-        ".npmrc",
         "app/api/pos/[[...pos]]/route.ts",
         "instrumentation.ts",
         "i18n/request.ts",
@@ -90,7 +89,7 @@ describe("runInit", () => {
     const report = await runInit({ cwd, ...OPTIONS });
     expect(report.created).toEqual([]);
     expect(report.conflicted).toEqual([]);
-    expect(report.skipped).toEqual(expect.arrayContaining([".npmrc", "instrumentation.ts"]));
+    expect(report.skipped).toEqual(expect.arrayContaining(["instrumentation.ts"]));
   });
 
   it("never clobbers a hand-edited generated file — writes .new beside it", async () => {
@@ -124,20 +123,28 @@ describe("runInit", () => {
     expect(await readFile(target, "utf8")).toContain("registerGlobalErrorHandlers");
   });
 
-  it("appends the scope to an existing unrelated .npmrc and env block once", async () => {
+  it("never touches the consumer's .npmrc — the packages are public", async () => {
+    // Scaffolding registry auth would force every consumer (and their CI) to
+    // set NPM_TOKEN for packages that need no credentials at all.
     const cwd = await makeApp();
     await writeFile(path.join(cwd, ".npmrc"), "save-exact=true\n");
     await writeFile(path.join(cwd, ".env.example"), "MY_APP_KEY=x\n");
     const report = await runInit({ cwd, ...OPTIONS });
-    expect(report.updated).toContain(".npmrc");
-    const npmrc = await readFile(path.join(cwd, ".npmrc"), "utf8");
-    expect(npmrc).toContain("save-exact=true");
-    expect(npmrc).toContain("@nukesai-pos:registry=");
+
+    expect(await readFile(path.join(cwd, ".npmrc"), "utf8")).toBe("save-exact=true\n");
+    expect([...report.created, ...report.updated, ...report.skipped]).not.toContain(".npmrc");
+
     const env = await readFile(path.join(cwd, ".env.example"), "utf8");
     expect(env).toContain("MY_APP_KEY=x");
     expect(env).toContain("POS_API_BASE_PATH");
     const again = await runInit({ cwd, ...OPTIONS });
     expect(again.envExampleTouched).toBe(false);
+  });
+
+  it("creates no .npmrc in a fresh app either", async () => {
+    const cwd = await makeApp();
+    await runInit({ cwd, ...OPTIONS });
+    expect(existsSync(path.join(cwd, ".npmrc"))).toBe(false);
   });
 
   it("rejects unknown features up front", async () => {
@@ -149,18 +156,11 @@ describe("runInit", () => {
 
   it("dry-run writes nothing", async () => {
     const cwd = await makeApp();
-    await writeFile(path.join(cwd, ".npmrc"), "save-exact=true\n"); // append path, dry
     const report = await runInit({ cwd, ...OPTIONS, force: false, dryRun: true });
-    expect(await readFile(path.join(cwd, ".npmrc"), "utf8")).toBe("save-exact=true\n");
     expect(report.created.length).toBeGreaterThan(0);
     expect(existsSync(path.join(cwd, "lib"))).toBe(false);
     expect(await readManifest(cwd)).toBeNull();
     expect(await readFile(path.join(cwd, "next.config.ts"), "utf8")).not.toContain("withNukesPos");
-
-    // Fresh app (no .npmrc at all): the create path must also stay dry.
-    const fresh = await makeApp();
-    await runInit({ cwd: fresh, ...OPTIONS, force: false, dryRun: true });
-    expect(existsSync(path.join(fresh, ".npmrc"))).toBe(false);
   });
 
   it("keeps the add-owned ledger entry on re-run, and keeps --features authoritative", async () => {

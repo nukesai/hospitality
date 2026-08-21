@@ -2,7 +2,7 @@
   "name": "@nukesai-pos/eslint-config",
   "version": "0.0.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "exports": {
     "./base": "./base.js",

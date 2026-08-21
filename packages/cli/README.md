@@ -4,7 +4,7 @@ Scaffolds Nukes POS into an existing Next.js 16 (App Router) application.
 Proprietary — © Nukes AI & Software Solution.
 
 ```bash
-npx @nukesai-pos/cli init      # detect app, write nukes-pos.json, .npmrc, (nukes-pos) route group
+npx @nukesai-pos/cli init      # detect app, write nukes-pos.json, (nukes-pos) route group
 npx @nukesai-pos/cli add kds   # scaffold an optional surface (registry grows with releases)
 npx @nukesai-pos/cli doctor    # read-only diagnosis; exits non-zero on problems
 npx @nukesai-pos/cli upgrade   # regenerate scaffolds; ALWAYS a dry-run plan first

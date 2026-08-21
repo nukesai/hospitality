@@ -12,7 +12,7 @@
   "bugs": {
     "email": "info@nukesai.com"
   },
-  "license": "UNLICENSED",
+  "license": "GPL-3.0-or-later",
   "author": {
     "name": "Nukes AI & Software Solution",
     "email": "info@nukesai.com"
@@ -112,7 +112,7 @@
     "node": ">=20.19.0"
   },
   "publishConfig": {
-    "access": "restricted",
+    "access": "public",
     "provenance": false,
     "registry": "https://registry.npmjs.org/",
     "tag": "latest"

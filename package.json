@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Nukes AI point-of-sale platform monorepo.",
-  "license": "UNLICENSED",
+  "license": "GPL-3.0-or-later",
   "author": "Nukes AI & Software Solution <info@nukesai.com>",
   "type": "module",
   "scripts": {
@@ -23,7 +23,7 @@
     "lint": "turbo run lint",
     "lint:bans": "node scripts/assert-lint-bans.mjs",
     "prepare": "husky",
-    "release": "turbo run build && pnpm publish -r --no-git-checks --access restricted --report-summary",
+    "release": "turbo run build && pnpm publish -r --no-git-checks --access public --report-summary",
     "size": "size-limit",
     "stack:down": "docker compose -f docker/compose.yaml down",
     "stack:nuke": "docker compose -f docker/compose.yaml down -v",
