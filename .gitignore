@@ -11,4 +11,5 @@ e2e/.artifacts/
 .env.*
 !.env.example
 .DS_Store
-.claude/settings.local.json
+**/.claude/settings.local.json
+graphify-out/
