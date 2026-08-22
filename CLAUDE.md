@@ -84,3 +84,27 @@ Each of these compiled, passed tests, and was still wrong. Verify, do not assume
 - **The CLI writes into customer repositories.** It fails loudly or not at all:
   validate before writing, never clobber a hand-edited file, never drop a
   ledger entry.
+
+## graphify
+
+Optional local tooling, not a repo dependency: `graphify` is a personal install,
+absent on most machines and invisible to the pnpm catalog and syncpack. When
+`graphify-out/graph.json` is missing, skip this section and use grep. Its output
+is generated and reviewed by nobody, so it outranks nothing here: AGENTS.md is
+binding, `docs/architecture/isolation.md` is normative for the SSR/CSR boundary,
+`.nukes/RESEARCH-BACKEND.md` R1–R16 are binding for the backend, and
+ARCHITECTURE.md is the map. Where the graph disagrees with any of them, the
+graph is the bug.
+
+When it is present:
+
+- Prefer `graphify query "<question>"` to a raw grep sweep for codebase
+  questions, `graphify path "<A>" "<B>"` for relationships, and
+  `graphify explain "<concept>"` for one concept. Each returns a scoped
+  subgraph, usually far smaller than GRAPH_REPORT.md or a grep dump.
+- `graphify-out/wiki/index.md` is the cheapest way to navigate broadly.
+- Read `graphify-out/GRAPH_REPORT.md` only when query/path/explain do not
+  surface enough context.
+- Run `graphify update .` after modifying code (AST-only, no API cost). Nothing
+  refreshes the graph on pull, checkout, rebase, or merge, so treat it as stale
+  after any of those and confirm against source before trusting it.
