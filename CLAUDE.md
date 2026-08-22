@@ -90,8 +90,11 @@ Each of these compiled, passed tests, and was still wrong. Verify, do not assume
 Optional local tooling, not a repo dependency: `graphify` is a personal install,
 absent on most machines and invisible to the pnpm catalog and syncpack. When
 `graphify-out/graph.json` is missing, skip this section and use grep. Its output
-is generated and reviewed by nobody, so AGENTS.md and ARCHITECTURE.md stay the
-binding map — where the graph disagrees with them, the graph is the bug.
+is generated and reviewed by nobody, so it outranks nothing here: AGENTS.md is
+binding, `docs/architecture/isolation.md` is normative for the SSR/CSR boundary,
+`.nukes/RESEARCH-BACKEND.md` R1–R16 are binding for the backend, and
+ARCHITECTURE.md is the map. Where the graph disagrees with any of them, the
+graph is the bug.
 
 When it is present:
 
