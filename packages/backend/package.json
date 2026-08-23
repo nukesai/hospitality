@@ -18,9 +18,19 @@
     "email": "info@nukesai.com"
   },
   "sideEffects": [
-    "./dist/internal/browser-guard.js",
+    "./dist/adapters/cache/memory.js",
+    "./dist/adapters/cache/redis.js",
+    "./dist/adapters/cache/upstash.js",
+    "./dist/adapters/demo/index.js",
+    "./dist/adapters/drizzle/index.js",
+    "./dist/adapters/logging/pino.js",
+    "./dist/auth/index.js",
+    "./dist/bootstrap/index.js",
+    "./dist/cache/index.js",
     "./dist/index.js",
-    "./dist/adapters/demo/index.js"
+    "./dist/internal/browser-guard.js",
+    "./dist/next/index.js",
+    "./dist/trpc/index.js"
   ],
   "type": "module",
   "exports": {
@@ -31,6 +41,7 @@
     },
     "./env": {
       "types": "./dist/env.d.ts",
+      "browser": "./dist/internal/browser-guard.js",
       "default": "./dist/env.js"
     },
     "./bootstrap": {
@@ -60,6 +71,7 @@
     },
     "./ports": {
       "types": "./dist/ports/index.d.ts",
+      "browser": "./dist/internal/browser-guard.js",
       "default": "./dist/ports/index.js"
     },
     "./adapters/demo": {

@@ -34,14 +34,25 @@ interface ConditionalExport {
  * explicit — "if a rule is not enforced, it is not a rule" — and a hard-coded
  * list stops enforcing the moment someone adds a subpath.
  */
-const publishedEntries = (): { subpath: string; entry: ConditionalExport }[] => {
-  const pkg = JSON.parse(readFileSync(path.join(PKG_ROOT, "package.json"), "utf8")) as {
-    exports: Record<string, ConditionalExport | string>;
-  };
-  return Object.entries(pkg.exports)
+const rawExports = (): Record<string, ConditionalExport | string> =>
+  (
+    JSON.parse(readFileSync(path.join(PKG_ROOT, "package.json"), "utf8")) as {
+      exports: Record<string, ConditionalExport | string>;
+    }
+  ).exports;
+
+/**
+ * `./package.json` is the one legitimate string-valued export. Any OTHER
+ * shorthand entry (`"./foo": "./dist/foo.js"`) would carry neither lock and
+ * would be silently skipped by a `typeof === "object"` filter, so it is
+ * rejected outright rather than filtered away.
+ */
+const SHORTHAND_ALLOWED = new Set(["./package.json"]);
+
+const publishedEntries = (): { subpath: string; entry: ConditionalExport }[] =>
+  Object.entries(rawExports())
     .filter((pair): pair is [string, ConditionalExport] => typeof pair[1] === "object")
     .map(([subpath, entry]) => ({ subpath, entry }));
-};
 
 /** dist-relative path of a subpath's real module (the `default` condition). */
 const distTarget = (entry: ConditionalExport): string =>
@@ -56,8 +67,13 @@ const PILL_EXEMPT = new Set(["./ports", "./env"]);
 /**
  * ./adapters/cache-memory is isomorphic-safe, so it needs no browser guard
  * (RESEARCH-BACKEND.md:180-181). It still carries the pill.
+ *
+ * ./ports and ./env are deliberately NOT here: they are exempt from the pill
+ * only. The browser condition costs them nothing — Node scripts and the
+ * react-server graph both resolve `default` — and without it they were the only
+ * entries carrying no lock at all.
  */
-const GUARD_EXEMPT = new Set([...PILL_EXEMPT, "./adapters/cache-memory"]);
+const GUARD_EXEMPT = new Set(["./adapters/cache-memory"]);
 
 describe("backend dist boundary contract", () => {
   it("emits the browser guard, its types, and the guard throws", () => {
@@ -99,12 +115,30 @@ describe("backend dist boundary contract", () => {
     }
   });
 
+  it("no subpath is declared in shorthand string form (it would carry neither lock)", () => {
+    for (const [subpath, entry] of Object.entries(rawExports())) {
+      if (SHORTHAND_ALLOWED.has(subpath)) continue;
+      expect(
+        typeof entry,
+        `${subpath} is a shorthand string export, so it can carry no browser condition and is invisible to the lock assertions — declare it as { types, browser, default }`,
+      ).toBe("object");
+    }
+  });
+
   it("every public entry except ./ports, ./env and ./adapters/cache-memory resolves to the browser guard", () => {
     const guarded = publishedEntries().filter(({ subpath }) => !GUARD_EXEMPT.has(subpath));
     expect(guarded.length).toBeGreaterThan(0);
 
     for (const { subpath, entry } of guarded) {
       expect(entry.browser, `${subpath} has no browser condition`).toBe(BROWSER_GUARD);
+      // Condition ORDER is load-bearing: Node and the bundlers take the first
+      // matching key, so { types, default, browser } silently disables the guard
+      // while every value-based assertion above still passes.
+      const keys = Object.keys(entry);
+      expect(
+        keys.indexOf("browser"),
+        `${subpath} lists "browser" after "default" (${keys.join(", ")}), so default wins in a browser graph and the guard never fires`,
+      ).toBeLessThan(keys.indexOf("default"));
     }
   });
 
@@ -112,6 +146,27 @@ describe("backend dist boundary contract", () => {
     for (const { subpath, entry } of publishedEntries()) {
       if (!GUARD_EXEMPT.has(subpath)) continue;
       expect(entry.browser, `${subpath} is documented as unguarded`).toBeUndefined();
+    }
+  });
+
+  it("sideEffects names every pill-bearing entry, so no bundler may elide the pill", () => {
+    const pkg = JSON.parse(readFileSync(path.join(PKG_ROOT, "package.json"), "utf8")) as {
+      sideEffects?: string[];
+    };
+    const declared = new Set(pkg.sideEffects ?? []);
+    expect(declared.size).toBeGreaterThan(0);
+
+    // A pill's entire value IS its side effect. If the module is also declared
+    // side-effect-free, a bundler is licensed to drop it when nothing is used
+    // from it — the lock would be present in source and absent after bundling,
+    // the same class of failure the rest of this file exists to catch.
+    for (const { subpath, entry } of publishedEntries()) {
+      const file = distTarget(entry);
+      if (!SERVER_ONLY.test(read(file))) continue;
+      expect(
+        declared,
+        `${subpath} (${String(entry.default)}) carries the server-only pill but is not listed in sideEffects`,
+      ).toContain(entry.default);
     }
   });
 
