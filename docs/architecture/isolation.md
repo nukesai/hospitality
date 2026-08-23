@@ -39,15 +39,24 @@ exactly how server code would leak into a browser bundle.
 
 Two independent locks, because one is not enough:
 
-1. **Poison pill.** Every public entry file (except the type-only `./ports`)
-   begins with `import "server-only";`.
-2. **`browser` condition → throwing guard.** The `.` and `./adapters/demo`
-   subpaths resolve to `dist/_browser_guard.js` in any browser graph. Verified
+1. **Poison pill.** Every public entry file begins with `import "server-only";`,
+   except the type-only `./ports` and `./env` (scripts import it — see
+   `.nukes/RESEARCH-BACKEND.md` §2). This includes `./adapters/cache-memory`:
+   being isomorphic-safe excuses it from lock 2 only, never from the pill,
+   because the package is server-only with no exceptions.
+2. **`browser` condition → throwing guard.** Every subpath except `./ports`,
+   `./env`, and the isomorphic-safe `./adapters/cache-memory` resolves to
+   `dist/internal/browser-guard.js` in any browser graph. Verified
    on Next 16.3.1/Turbopack: the client build fails and the real module is
    absent from `.next/static`. The guard's error is cryptic
-   (`Export X doesn't exist in target module …_browser_guard.js [app-client]`),
+   (`Export X doesn't exist in target module …browser-guard.js [app-client]`),
    which is why `server-only` — whose Next-intercepted message is clear — fires
    first in practice.
+
+Neither list is maintained by hand. `packages/backend/test/boundary.dist.test.ts`
+derives the entry set from the package's own `exports` map and asserts both locks
+on every entry, so a new subpath is covered the day it is published and an
+exemption that stops matching a real subpath fails the suite.
 
 The `default` condition points at the **real** module (NOT a poison file), so
 plain-Node consumers — vitest, scripts — work without configuring resolver
@@ -134,9 +143,12 @@ survived the build:
 
 - every non-barrel `client/**` chunk keeps `"use client"`; barrels never carry it;
 - no client chunk imports `server-only` or a node builtin;
-- no server chunk is `"use client"`; guarded entries keep `import "server-only"`;
-- `_browser_guard.js` exists and throws;
-- every glob asserts a non-empty match set (no vacuous passes).
+- no server chunk is `"use client"`; **every** published backend entry keeps
+  `import "server-only"` and resolves to the browser guard — both lists derived
+  from the `exports` map, never hard-coded;
+- `internal/browser-guard.js` exists and throws;
+- every glob and every derived set asserts a non-empty match (no vacuous passes),
+  and every documented exemption must still name a real subpath.
 
 A dropped directive or a tree-shaken poison pill is a silent,
 ships-to-production class of bug that only these tests catch — both failure

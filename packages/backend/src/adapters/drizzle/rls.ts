@@ -12,7 +12,9 @@ export interface BranchContext {
 export type PosTx = NodePgTransaction<PosSchema, ExtractTablesWithRelations<PosSchema>>;
 
 /**
- * The ONLY sanctioned db entry point with request context (lint-enforced).
+ * The ONLY sanctioned db entry point with request context. Enforced by
+ * RLS_SYNTAX_BANS in @nukesai-pos/eslint-config/boundaries; this file is the
+ * single exemption (rlsSanctionedZone).
  * set_config(..., true) === SET LOCAL but parameterizable; live-verified to
  * revert on COMMIT and ROLLBACK — nothing leaks across pooled connections.
  * ctx MUST come from the better-auth session, never from request input.
