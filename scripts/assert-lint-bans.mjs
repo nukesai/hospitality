@@ -64,7 +64,40 @@ const EXPECTED = [
     names: [],
     // The frontend MAY use next-intl; what it may never do is reach for the backend.
     groups: ["@nukesai-pos/backend", "server-only"],
-    selectors: ["TSEnumDeclaration"],
+    selectors: [
+      "TSEnumDeclaration",
+      "ImportExpression > Literal[value=/@nukesai-pos\\u002Fbackend|server-only|\\u002Fserver/]",
+    ],
+  },
+  {
+    // BARRELS ARE THE INTERESTING CASE, and probing only a leaf missed it: the
+    // per-barrel block supplies new `no-restricted-syntax` options, so it used to
+    // delete clientZone's dynamic-import ban outright — `await
+    // import("@nukesai-pos/backend")` linted clean inside src/client/index.ts.
+    // Any barrel override must keep its zone bans AND add the "use client" ban.
+    package: "packages/frontend",
+    file: "src/client/index.ts",
+    names: [],
+    groups: ["@nukesai-pos/backend", "server-only"],
+    selectors: [
+      "TSEnumDeclaration",
+      "ImportExpression > Literal[value=/@nukesai-pos\\u002Fbackend|server-only|\\u002Fserver/]",
+      "ExpressionStatement > Literal[value='use client']",
+    ],
+  },
+  {
+    // The frontend's SERVER barrel. It has no `@nukesai-pos/backend` path ban —
+    // backend is not a dependency of this package, so import-x/no-unresolved is
+    // what stops it. What this barrel must keep is the client-import ban.
+    package: "packages/frontend",
+    file: "src/server/index.ts",
+    names: [],
+    groups: ["client-only", "./client", "*.client"],
+    selectors: [
+      "TSEnumDeclaration",
+      "ImportExpression > Literal[value=/client/]",
+      "ExpressionStatement > Literal[value='use client']",
+    ],
   },
 ];
 

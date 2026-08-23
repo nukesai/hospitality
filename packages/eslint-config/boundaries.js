@@ -70,7 +70,7 @@ const RLS_DOC =
  * touches `no-restricted-syntax` must spread these back in or it silently
  * deletes them.
  */
-const SERVER_SYNTAX_BANS = [
+export const SERVER_SYNTAX_BANS = [
   ...BASE_SYNTAX_BANS,
   {
     selector: "ImportExpression > Literal[value=/client/]",
@@ -82,22 +82,35 @@ const SERVER_SYNTAX_BANS = [
  * Branch isolation is a security boundary, not a convention.
  *
  * withBranchContext() opens the transaction AND sets app.user_id / app.branch_id
- * / app.role as transaction-local GUCs; every RLS policy reads them. Code that
- * opens its own transaction runs with those GUCs unset, so the policies match
- * nothing and one location's rows become reachable from another's request.
+ * / app.role as transaction-local GUCs; every RLS policy reads them through
+ * branchGuard(), which is FAIL-CLOSED: with the GUC unset, `current_setting(...,
+ * true)` yields '', nullif turns it into NULL, and `col = NULL` matches nothing.
  *
- * The set_config ban targets TemplateElement only: the realistic bypass is raw
- * SQL in a sql`` tag. A plain-string selector would false-positive on
- * rls.test.ts, which names the function in a test title and a regex.
+ * So the failure mode of an unsanctioned transaction is that the request is
+ * denied everything and fails closed — not that it reads another location's
+ * rows. It becomes an isolation BYPASS only if it also runs as an RLS-exempt
+ * role. Both are bugs; stating the right one keeps a developer from hunting a
+ * leak that cannot happen through this path.
+ *
+ * set_config is matched in both forms it can realistically take. The template
+ * ban covers sql`...`; the second covers `sql.raw()` with an ordinary string,
+ * which is already the established idiom here (schema/_policies.ts:28) and would
+ * otherwise be an open bypass. The raw ban is scoped to arguments of a `.raw()`
+ * call rather than to every string, so a test title or a /set_config/ regex —
+ * both present in rls.test.ts — cannot false-positive.
  */
 const RLS_SYNTAX_BANS = [
   {
     selector: "CallExpression[callee.property.name='transaction']",
-    message: `never open a database transaction directly — the branch GUCs would be unset and RLS would not isolate the location. ${RLS_DOC}`,
+    message: `never open a database transaction directly — the branch GUCs would be unset, so RLS denies everything and the request fails closed (or bypasses isolation entirely under an RLS-exempt role). ${RLS_DOC}`,
   },
   {
     selector: "TemplateElement[value.raw=/set_config/]",
     message: `never set the branch GUCs by hand. ${RLS_DOC}`,
+  },
+  {
+    selector: "CallExpression[callee.property.name='raw'] Literal[value=/set_config/]",
+    message: `never set the branch GUCs by hand — sql.raw() with a plain string is the same bypass. ${RLS_DOC}`,
   },
 ];
 
@@ -160,6 +173,32 @@ export const rlsSanctionedZone = {
   },
 };
 
+/**
+ * Syntax bans every client file carries. Exported for the same reason
+ * SERVER_SYNTAX_BANS is: any later block that touches `no-restricted-syntax`
+ * for a client file must spread these back in, or it deletes them silently.
+ */
+export const CLIENT_SYNTAX_BANS = [
+  ...BASE_SYNTAX_BANS,
+  {
+    selector:
+      "ImportExpression > Literal[value=/@nukesai-pos\\u002Fbackend|server-only|\\u002Fserver/]",
+    message: `Client code must never dynamically import server modules. ${DOC}`,
+  },
+];
+
+/**
+ * A "use client" barrel becomes a single client boundary and drags every unused
+ * export into the consumer's bundle. Exported so a package's barrel override can
+ * add it WITHOUT dropping the zone bans it sits on top of — the mistake that
+ * silently removed the client dynamic-import ban from every frontend barrel.
+ */
+export const USE_CLIENT_BARREL_BAN = {
+  selector: "ExpressionStatement > Literal[value='use client']",
+  message:
+    'Never put "use client" on a barrel/index file — it drags the whole package into the consumer\'s client bundle. Mark the leaf component instead.',
+};
+
 /** Client-graph rules (ships to the browser). */
 export const clientZone = {
   name: "nukes/boundary/client",
@@ -195,15 +234,7 @@ export const clientZone = {
       },
     ],
     // no-restricted-imports does NOT see dynamic import(); ban the literal forms.
-    "no-restricted-syntax": [
-      "error",
-      ...BASE_SYNTAX_BANS,
-      {
-        selector:
-          "ImportExpression > Literal[value=/@nukesai-pos\\u002Fbackend|server-only|\\u002Fserver/]",
-        message: `Client code must never dynamically import server modules. ${DOC}`,
-      },
-    ],
+    "no-restricted-syntax": ["error", ...CLIENT_SYNTAX_BANS],
   },
 };
 
@@ -345,7 +376,7 @@ export function boundaries({ packageDir, zone }) {
     case "isomorphic":
       return [...base, banI18n(isomorphicZone)];
     case "mixed":
-      return [...base, serverZone, rlsSanctionedZone, clientZone, mixedStructureZone];
+      return [...base, serverZone, clientZone, mixedStructureZone];
     default:
       throw new Error(`Unknown zone: ${String(zone)}`);
   }
