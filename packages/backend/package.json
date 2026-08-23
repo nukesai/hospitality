@@ -74,10 +74,12 @@
     },
     "./adapters/cache-redis": {
       "types": "./dist/adapters/cache/redis.d.ts",
+      "browser": "./dist/internal/browser-guard.js",
       "default": "./dist/adapters/cache/redis.js"
     },
     "./adapters/cache-upstash": {
       "types": "./dist/adapters/cache/upstash.d.ts",
+      "browser": "./dist/internal/browser-guard.js",
       "default": "./dist/adapters/cache/upstash.js"
     },
     "./adapters/cache-memory": {
