@@ -61,6 +61,46 @@ export const zoneConfig = ({ packageDir }) => ({
   },
 });
 
+const RLS_DOC =
+  "Use withBranchContext() — see packages/backend/src/adapters/drizzle/rls.ts and .nukes/RESEARCH-BACKEND.md §4.";
+
+/**
+ * Syntax bans every server file carries. Named so rlsSanctionedZone can restate
+ * them verbatim; flat config replaces rule options wholesale, so any block that
+ * touches `no-restricted-syntax` must spread these back in or it silently
+ * deletes them.
+ */
+const SERVER_SYNTAX_BANS = [
+  ...BASE_SYNTAX_BANS,
+  {
+    selector: "ImportExpression > Literal[value=/client/]",
+    message: `server code must not dynamically import client modules. ${DOC}`,
+  },
+];
+
+/**
+ * Branch isolation is a security boundary, not a convention.
+ *
+ * withBranchContext() opens the transaction AND sets app.user_id / app.branch_id
+ * / app.role as transaction-local GUCs; every RLS policy reads them. Code that
+ * opens its own transaction runs with those GUCs unset, so the policies match
+ * nothing and one location's rows become reachable from another's request.
+ *
+ * The set_config ban targets TemplateElement only: the realistic bypass is raw
+ * SQL in a sql`` tag. A plain-string selector would false-positive on
+ * rls.test.ts, which names the function in a test title and a regex.
+ */
+const RLS_SYNTAX_BANS = [
+  {
+    selector: "CallExpression[callee.property.name='transaction']",
+    message: `never open a database transaction directly — the branch GUCs would be unset and RLS would not isolate the location. ${RLS_DOC}`,
+  },
+  {
+    selector: "TemplateElement[value.raw=/set_config/]",
+    message: `never set the branch GUCs by hand. ${RLS_DOC}`,
+  },
+];
+
 /** Server-graph rules (RSC/Node only). */
 export const serverZone = {
   name: "nukes/boundary/server",
@@ -98,14 +138,25 @@ export const serverZone = {
     // no-restricted-imports does NOT see dynamic import(); ban the literal forms.
     // BASE_SYNTAX_BANS is spread back in because flat config replaces rule
     // options wholesale.
-    "no-restricted-syntax": [
-      "error",
-      ...BASE_SYNTAX_BANS,
-      {
-        selector: "ImportExpression > Literal[value=/client/]",
-        message: `server code must not dynamically import client modules. ${DOC}`,
-      },
-    ],
+    "no-restricted-syntax": ["error", ...SERVER_SYNTAX_BANS, ...RLS_SYNTAX_BANS],
+  },
+};
+
+/**
+ * The sanctioned RLS entry point. `withBranchContext()` is the ONLY place
+ * allowed to open a transaction and set the branch GUCs, so this file restates
+ * SERVER_SYNTAX_BANS *without* RLS_SYNTAX_BANS.
+ *
+ * Restating is mandatory, not stylistic: flat config replaces rule options
+ * wholesale, so `["error", ...SERVER_SYNTAX_BANS]` here is what keeps the enum
+ * and dynamic-client-import bans alive for this file. scripts/assert-lint-bans.mjs
+ * proves both halves survive.
+ */
+export const rlsSanctionedZone = {
+  name: "nukes/boundary/rls-sanctioned",
+  files: ["src/adapters/drizzle/rls.ts"],
+  rules: {
+    "no-restricted-syntax": ["error", ...SERVER_SYNTAX_BANS],
   },
 };
 
@@ -286,13 +337,15 @@ export function boundaries({ packageDir, zone }) {
   switch (zone) {
     case "server":
       // Whole package is server code, not just src/server/**.
-      return [...base, banI18n({ ...serverZone, files: ["src/**/*.{ts,tsx}"] })];
+      // rlsSanctionedZone MUST come after serverZone — it re-permits the RLS
+      // syntax for the one file that owns it.
+      return [...base, banI18n({ ...serverZone, files: ["src/**/*.{ts,tsx}"] }), rlsSanctionedZone];
     case "client":
       return [...base, { ...clientZone, files: ["src/**/*.{ts,tsx}"] }];
     case "isomorphic":
       return [...base, banI18n(isomorphicZone)];
     case "mixed":
-      return [...base, serverZone, clientZone, mixedStructureZone];
+      return [...base, serverZone, rlsSanctionedZone, clientZone, mixedStructureZone];
     default:
       throw new Error(`Unknown zone: ${String(zone)}`);
   }
