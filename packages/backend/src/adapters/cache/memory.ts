@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { CacheStore } from "../../ports/cache.js";
 
 interface MemoryEntry {
