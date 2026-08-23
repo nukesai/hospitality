@@ -58,9 +58,20 @@ derives the entry set from the package's own `exports` map and asserts both lock
 on every entry, so a new subpath is covered the day it is published and an
 exemption that stops matching a real subpath fails the suite.
 
-The `default` condition points at the **real** module (NOT a poison file), so
-plain-Node consumers — vitest, scripts — work without configuring resolver
-conditions. Backend never contains `"use client"`, never imports react or
+The `default` condition points at the **real** module (NOT a poison file), so a
+plain-Node resolver still finds real code rather than a stub.
+
+That is a statement about **resolution, not execution.** `server-only` itself
+ships `{ "react-server": "./empty.js", "default": "./index.js" }`, and its
+`default` is a bare `throw`. So any pill-bearing entry loads cleanly in the
+react-server graph (Next server components, route handlers, server actions) and
+throws under plain Node. This has always been true of the pilled entries — the
+repo's own suite only works because `packages/backend/vitest.config.ts` aliases
+`server-only` to `test/server-only-stub.ts`. A consumer running backend code
+under plain-Node vitest needs the same alias; scripts should import `./env`,
+which is pill-exempt for exactly this reason.
+
+Backend never contains `"use client"`, never imports react or
 `@nukesai-pos/frontend` (lint- and peer-enforced), and exposes persistence
 strictly through **ports** so a driver can be dropped in later without touching
 the public API. Every port method takes `locationId` first — flat database,
@@ -147,6 +158,8 @@ survived the build:
   `import "server-only"` and resolves to the browser guard — both lists derived
   from the `exports` map, never hard-coded;
 - `internal/browser-guard.js` exists and throws;
+- `sideEffects` names every pill-bearing entry, and `browser` precedes `default`
+  in every conditional export (order decides which condition wins);
 - every glob and every derived set asserts a non-empty match (no vacuous passes),
   and every documented exemption must still name a real subpath.
 

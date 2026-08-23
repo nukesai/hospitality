@@ -186,6 +186,12 @@ excuses `./adapters/cache-memory` from the **browser guard only**. It still carr
 from one — the package is server-only with no exceptions (`docs/architecture/isolation.md`
 §2). The only pill exemptions are the type-only `./ports` and `./env`.
 
+Those two pill exemptions do NOT extend to the browser guard. `./ports` and `./env` now
+carry it as well: the guard only affects browser graphs, while scripts and the
+react-server graph both resolve `default`, so it costs them nothing — and without it they
+were the only entries in the package with no lock at all. `./adapters/cache-memory` is the
+single guard exemption.
+
 Enforcement is derived, not listed: `packages/backend/test/boundary.dist.test.ts` reads the
 `exports` map and asserts both locks per entry. It previously iterated a hard-coded pair and
 so covered 2 of 12 entries, which is how six subpaths lost a lock with nothing going red.
