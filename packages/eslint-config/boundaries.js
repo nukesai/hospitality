@@ -61,6 +61,59 @@ export const zoneConfig = ({ packageDir }) => ({
   },
 });
 
+const RLS_DOC =
+  "Use withBranchContext() — see packages/backend/src/adapters/drizzle/rls.ts and .nukes/RESEARCH-BACKEND.md §4.";
+
+/**
+ * Syntax bans every server file carries. Named so rlsSanctionedZone can restate
+ * them verbatim; flat config replaces rule options wholesale, so any block that
+ * touches `no-restricted-syntax` must spread these back in or it silently
+ * deletes them.
+ */
+export const SERVER_SYNTAX_BANS = [
+  ...BASE_SYNTAX_BANS,
+  {
+    selector: "ImportExpression > Literal[value=/client/]",
+    message: `server code must not dynamically import client modules. ${DOC}`,
+  },
+];
+
+/**
+ * Branch isolation is a security boundary, not a convention.
+ *
+ * withBranchContext() opens the transaction AND sets app.user_id / app.branch_id
+ * / app.role as transaction-local GUCs; every RLS policy reads them through
+ * branchGuard(), which is FAIL-CLOSED: with the GUC unset, `current_setting(...,
+ * true)` yields '', nullif turns it into NULL, and `col = NULL` matches nothing.
+ *
+ * So the failure mode of an unsanctioned transaction is that the request is
+ * denied everything and fails closed — not that it reads another location's
+ * rows. It becomes an isolation BYPASS only if it also runs as an RLS-exempt
+ * role. Both are bugs; stating the right one keeps a developer from hunting a
+ * leak that cannot happen through this path.
+ *
+ * set_config is matched in both forms it can realistically take. The template
+ * ban covers sql`...`; the second covers `sql.raw()` with an ordinary string,
+ * which is already the established idiom here (schema/_policies.ts:28) and would
+ * otherwise be an open bypass. The raw ban is scoped to arguments of a `.raw()`
+ * call rather than to every string, so a test title or a /set_config/ regex —
+ * both present in rls.test.ts — cannot false-positive.
+ */
+const RLS_SYNTAX_BANS = [
+  {
+    selector: "CallExpression[callee.property.name='transaction']",
+    message: `never open a database transaction directly — the branch GUCs would be unset, so RLS denies everything and the request fails closed (or bypasses isolation entirely under an RLS-exempt role). ${RLS_DOC}`,
+  },
+  {
+    selector: "TemplateElement[value.raw=/set_config/]",
+    message: `never set the branch GUCs by hand. ${RLS_DOC}`,
+  },
+  {
+    selector: "CallExpression[callee.property.name='raw'] Literal[value=/set_config/]",
+    message: `never set the branch GUCs by hand — sql.raw() with a plain string is the same bypass. ${RLS_DOC}`,
+  },
+];
+
 /** Server-graph rules (RSC/Node only). */
 export const serverZone = {
   name: "nukes/boundary/server",
@@ -98,15 +151,52 @@ export const serverZone = {
     // no-restricted-imports does NOT see dynamic import(); ban the literal forms.
     // BASE_SYNTAX_BANS is spread back in because flat config replaces rule
     // options wholesale.
-    "no-restricted-syntax": [
-      "error",
-      ...BASE_SYNTAX_BANS,
-      {
-        selector: "ImportExpression > Literal[value=/client/]",
-        message: `server code must not dynamically import client modules. ${DOC}`,
-      },
-    ],
+    "no-restricted-syntax": ["error", ...SERVER_SYNTAX_BANS, ...RLS_SYNTAX_BANS],
   },
+};
+
+/**
+ * The sanctioned RLS entry point. `withBranchContext()` is the ONLY place
+ * allowed to open a transaction and set the branch GUCs, so this file restates
+ * SERVER_SYNTAX_BANS *without* RLS_SYNTAX_BANS.
+ *
+ * Restating is mandatory, not stylistic: flat config replaces rule options
+ * wholesale, so `["error", ...SERVER_SYNTAX_BANS]` here is what keeps the enum
+ * and dynamic-client-import bans alive for this file. scripts/assert-lint-bans.mjs
+ * proves both halves survive.
+ */
+export const rlsSanctionedZone = {
+  name: "nukes/boundary/rls-sanctioned",
+  files: ["src/adapters/drizzle/rls.ts"],
+  rules: {
+    "no-restricted-syntax": ["error", ...SERVER_SYNTAX_BANS],
+  },
+};
+
+/**
+ * Syntax bans every client file carries. Exported for the same reason
+ * SERVER_SYNTAX_BANS is: any later block that touches `no-restricted-syntax`
+ * for a client file must spread these back in, or it deletes them silently.
+ */
+export const CLIENT_SYNTAX_BANS = [
+  ...BASE_SYNTAX_BANS,
+  {
+    selector:
+      "ImportExpression > Literal[value=/@nukesai-pos\\u002Fbackend|server-only|\\u002Fserver/]",
+    message: `Client code must never dynamically import server modules. ${DOC}`,
+  },
+];
+
+/**
+ * A "use client" barrel becomes a single client boundary and drags every unused
+ * export into the consumer's bundle. Exported so a package's barrel override can
+ * add it WITHOUT dropping the zone bans it sits on top of — the mistake that
+ * silently removed the client dynamic-import ban from every frontend barrel.
+ */
+export const USE_CLIENT_BARREL_BAN = {
+  selector: "ExpressionStatement > Literal[value='use client']",
+  message:
+    'Never put "use client" on a barrel/index file — it drags the whole package into the consumer\'s client bundle. Mark the leaf component instead.',
 };
 
 /** Client-graph rules (ships to the browser). */
@@ -144,15 +234,7 @@ export const clientZone = {
       },
     ],
     // no-restricted-imports does NOT see dynamic import(); ban the literal forms.
-    "no-restricted-syntax": [
-      "error",
-      ...BASE_SYNTAX_BANS,
-      {
-        selector:
-          "ImportExpression > Literal[value=/@nukesai-pos\\u002Fbackend|server-only|\\u002Fserver/]",
-        message: `Client code must never dynamically import server modules. ${DOC}`,
-      },
-    ],
+    "no-restricted-syntax": ["error", ...CLIENT_SYNTAX_BANS],
   },
 };
 
@@ -286,7 +368,9 @@ export function boundaries({ packageDir, zone }) {
   switch (zone) {
     case "server":
       // Whole package is server code, not just src/server/**.
-      return [...base, banI18n({ ...serverZone, files: ["src/**/*.{ts,tsx}"] })];
+      // rlsSanctionedZone MUST come after serverZone — it re-permits the RLS
+      // syntax for the one file that owns it.
+      return [...base, banI18n({ ...serverZone, files: ["src/**/*.{ts,tsx}"] }), rlsSanctionedZone];
     case "client":
       return [...base, { ...clientZone, files: ["src/**/*.{ts,tsx}"] }];
     case "isomorphic":

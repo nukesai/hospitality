@@ -1,3 +1,5 @@
+import "server-only";
+
 import { Redis } from "@upstash/redis";
 import type { CacheStore } from "../../ports/cache.js";
 

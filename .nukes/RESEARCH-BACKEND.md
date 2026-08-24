@@ -179,6 +179,22 @@ where noted, each with a size-limit budget entry): `./env` (no pill — scripts 
 `./bootstrap`, `./trpc`, `./next`, `./cache`, `./auth`, `./adapters/drizzle`,
 `./adapters/cache-redis`, `./adapters/cache-upstash`, `./adapters/cache-memory` (no browser
 guard needed — isomorphic-safe but exported for tests), `./adapters/logging`.
+
+To be explicit, because the wording above was once read both ways: "isomorphic-safe"
+excuses `./adapters/cache-memory` from the **browser guard only**. It still carries the
+`server-only` pill. Being technically runnable in a browser is not a licence to import it
+from one — the package is server-only with no exceptions (`docs/architecture/isolation.md`
+§2). The only pill exemptions are the type-only `./ports` and `./env`.
+
+Those two pill exemptions do NOT extend to the browser guard. `./ports` and `./env` now
+carry it as well: the guard only affects browser graphs, while scripts and the
+react-server graph both resolve `default`, so it costs them nothing — and without it they
+were the only entries in the package with no lock at all. `./adapters/cache-memory` is the
+single guard exemption.
+
+Enforcement is derived, not listed: `packages/backend/test/boundary.dist.test.ts` reads the
+`exports` map and asserts both locks per entry. It previously iterated a hard-coded pair and
+so covered 2 of 12 entries, which is how six subpaths lost a lock with nothing going red.
 New common subpaths: `./auth`, `./observability`, `./errors`.
 New frontend subpaths: `./i18n`, `./locales/*`.
 
@@ -294,8 +310,11 @@ Vercel path relies on `attachDatabasePool` (suspension) and never `process.exit`
   new migration table 403s — verified).
 - Session vars: `withBranchContext(db, {userId, branchId, role}, fn)` runs
   `select set_config('app.user_id',$1,true), set_config('app.branch_id',$2,true), set_config('app.role',$3,true)`
-  inside `db.transaction` — the ONLY sanctioned entry point (ESLint boundary rule bans raw
-  `set_config`/`db.transaction` elsewhere). Never `is_local=false` on a pooled connection.
+  inside `db.transaction` — the ONLY sanctioned entry point. The ESLint boundary rule that
+  bans raw `set_config`/`db.transaction` elsewhere is `RLS_SYNTAX_BANS` in
+  `packages/eslint-config/boundaries.js`, with `rlsSanctionedZone` exempting
+  `adapters/drizzle/rls.ts`; `scripts/assert-lint-bans.mjs` proves both the ban and the
+  exemption survive into the effective config. Never `is_local=false` on a pooled connection.
 - Policy template (from `_policies.ts`, reused verbatim by every table):
 
 ```sql

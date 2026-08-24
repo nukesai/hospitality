@@ -3,6 +3,8 @@
  * — broken/wasteful on Vercel serverless); plain JSON to stdout, which Vercel
  * log drains ingest natively. Destination is injectable for tests.
  */
+import "server-only";
+
 import pino from "pino"; // `export =` types: default import + esModuleInterop, NOT `import { pino }` (loses .destination)
 import type { DestinationStream, Logger as PinoLogger } from "pino";
 
