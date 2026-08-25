@@ -1,5 +1,8 @@
 ---
+"@nukesai-pos/common": minor
 "@nukesai-pos/backend": minor
+"@nukesai-pos/frontend": minor
+"@nukesai-pos/cli": minor
 ---
 
 Restore and machine-enforce the two-lock server/client isolation contract.

@@ -9,6 +9,26 @@ export interface DependencyReport {
 }
 
 /**
+ * The range written into a scaffolded app for the three @nukesai-pos packages.
+ *
+ * A caret on a canary is a dead end. `^0.0.0-canary-<ts>-<sha>` expands to
+ * `>=0.0.0-canary-<ts>-<sha> <0.0.1-0`, which can never resolve a stable
+ * release and floats onto every future snapshot — so an app scaffolded from a
+ * canary would silently track canaries forever. Pin those exactly.
+ *
+ * Beta and stable keep the caret, and that is the point of the channel design:
+ * `^1.2.0-beta.<ts>.sha-<sha>` graduates a scaffolded app onto the 1.2.0 GA and
+ * on to 1.3.0 without the consumer editing a file they did not write.
+ *
+ * This is why the first release of the branch-based pipeline is 1.0.0 and not
+ * 0.2.0. At 0.x a caret cannot cross a minor —
+ * `semver.satisfies("0.2.0", "^0.1.0") === false` — so every app scaffolded at
+ * 0.1.0 is frozen there. At 1.x carets work.
+ */
+export const posRange = (cliVersion: string): string =>
+  cliVersion.startsWith("0.0.0-") ? cliVersion : `^${cliVersion}`;
+
+/**
  * Adds every dependency the scaffold needs to the consumer package.json.
  * A package already declared in ANY dependency section is never touched (the
  * consumer's resolution wins); the
@@ -39,10 +59,11 @@ export async function injectConsumerDependencies(
     ...Object.keys(pkg.optionalDependencies ?? {}),
   ]);
 
+  const range = posRange(cliVersion);
   const wanted: Record<string, string> = {
-    "@nukesai-pos/backend": `^${cliVersion}`,
-    "@nukesai-pos/common": `^${cliVersion}`,
-    "@nukesai-pos/frontend": `^${cliVersion}`,
+    "@nukesai-pos/backend": range,
+    "@nukesai-pos/common": range,
+    "@nukesai-pos/frontend": range,
     ...CONSUMER_DEPENDENCIES,
   };
 

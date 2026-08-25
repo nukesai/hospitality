@@ -1,0 +1,258 @@
+name: Release (production)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  HUSKY: "0"
+  NPM_CONFIG_PROVENANCE: "false"
+
+jobs:
+  gates:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  release:
+    name: Version, publish, tag
+    needs: [gates]
+    # Key #1 of four. This repository CANNOT have branch protection
+    # (gh api .../branches/main/protection -> 403 "Upgrade to GitHub Pro"), and
+    # rulesets are 403 too, so every lock lives here or in the guard script.
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      # Keys #2 and #3, BEFORE anything mutates main. Running the channel guard
+      # only inside `pnpm release` would check AFTER pushing a version commit, so
+      # a missing RELEASE_ALLOW_LATEST would leave main carrying a bump for a
+      # version that was never published, and every re-run would refuse again.
+      - name: Pre-flight
+        id: preflight
+        env:
+          RELEASE_ALLOW_LATEST: ${{ vars.RELEASE_ALLOW_LATEST }}
+        run: |
+          set -euo pipefail
+          [ "${RELEASE_ALLOW_LATEST:-}" = "1" ] || {
+            echo "::error::RELEASE_ALLOW_LATEST is not 1 on the production environment."
+            exit 1
+          }
+
+          QUEUE=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
+
+          # Key #4: main may ONLY advance by a merge commit. A hand-pushed commit
+          # has one parent and can never reach `latest`. This replaces the branch
+          # protection this plan does not offer. It deliberately does NOT require
+          # the second parent to be `staging` — that would refuse every hotfix
+          # merge, whose HEAD^2 is a hotfix/* tip.
+          if ! git rev-parse -q --verify 'HEAD^2' >/dev/null; then
+            if [ "$QUEUE" -eq 0 ]; then
+              # Not a merge tip and nothing queued. That is USUALLY nothing to do
+              # — but it is also exactly the state a half-finished release leaves
+              # behind: the version commit is on main (single parent, queue
+              # consumed) and the publish failed afterwards. Deciding from the
+              # shape of HEAD alone made that UNRECOVERABLE: a re-run of the job
+              # died on a non-fast-forward push, and a workflow_dispatch re-run
+              # reported "nothing to do" and exited green while npm never got the
+              # version. Ask the registry instead of guessing from git.
+              VERSION="$(node -p "require('./packages/backend/package.json').version")"
+              if node scripts/verify-published.mjs --version "$VERSION" --tag latest --retries 1; then
+                echo "$VERSION is fully published — nothing to do."
+                echo "skip=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              echo "::warning::$VERSION is committed on main but is NOT fully published."
+              echo "::warning::Resuming the publish for it. The version step is skipped; only the publish runs."
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              echo "queue=0"    >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::main tip is not a merge commit but $QUEUE changeset(s) are pending."
+            echo "::error::Production releases must arrive as a merged PR from staging or hotfix/*."
+            exit 1
+          fi
+          echo "skip=false"   >> "$GITHUB_OUTPUT"
+          echo "queue=$QUEUE" >> "$GITHUB_OUTPUT"
+
+      - if: steps.preflight.outputs.skip != 'true'
+        uses: ./.github/actions/release-setup
+        with: { cache-scope: production }
+
+      # main is the ONLY branch that commits version bumps. That is what keeps
+      # staging -> main merges conflict-free: staging never edits these lines.
+      #
+      # Push BEFORE publish, deliberately. If the publish then fails, main carries
+      # a version commit for an unpublished version and a re-run republishes it
+      # (release.mjs probes the registry and is idempotent). The reverse order
+      # would leave npm holding a version main never recorded.
+      - name: Version packages and commit
+        id: version
+        if: steps.preflight.outputs.skip != 'true' && steps.preflight.outputs.queue != '0'
+        run: |
+          set -euo pipefail
+          pnpm run version-packages
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Explicit pathspec, not `git add -A`: this must never commit whatever a
+          # future gate happens to drop in the tree (coverage/, .turbo/, reports).
+          git add .changeset 'packages/*/package.json' 'packages/*/CHANGELOG.md' pnpm-lock.yaml
+          git commit -m "chore(release): version packages"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "versioned=true" >> "$GITHUB_OUTPUT"
+
+      # release.mjs: probe -> fail-closed channel guard -> build -> publish --tag
+      # -> verify against the registry -> move the `beta` dist-tag up to the GA.
+      # Safe to run with nothing to do.
+      - name: Publish to the production channel
+        if: steps.preflight.outputs.skip != 'true'
+        run: pnpm release
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "false"
+          RELEASE_BRANCH: ${{ github.ref_name }}
+          RELEASE_ALLOW_LATEST: ${{ vars.RELEASE_ALLOW_LATEST }}
+
+      # Tags are an artifact of a VERIFIED publish, never its trigger. The repo
+      # has zero git tags today; this starts the ledger.
+      - name: Tag the release
+        if: steps.version.outputs.versioned == 'true'
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./packages/backend/package.json').version")"
+          pnpm exec changeset git-tag
+          git tag -a "v${VERSION}" -m "v${VERSION}" || true
+          # Explicit refs, never `--tags`: that would push stray local tags. The
+          # guard matters because an empty $(...) makes `git push origin` fall
+          # back to pushing the current branch.
+          REFS=$(git tag --points-at HEAD | sed 's|^|refs/tags/|')
+          [ -n "$REFS" ] || { echo "::error::no tags were created for ${VERSION}"; exit 1; }
+          # shellcheck disable=SC2086
+          git push origin $REFS
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Production release"
+            echo "- version: \`$(node -p "require('./packages/backend/package.json').version")\`"
+            echo "- versioned this run: \`${{ steps.version.outputs.versioned }}\`"
+            echo "- skipped: \`${{ steps.preflight.outputs.skip }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  sync-down:
+    name: Back-merge main into staging and development
+    needs: [release]
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      - name: Merge down
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --prune --no-tags origin
+
+          # REFUSE TO PROPAGATE A ROLLBACK. Verified: `git revert -m 1` of a
+          # promotion merge on main, then this back-merge, deletes the feature
+          # from staging AND development with a CLEAN merge, no conflict, nothing
+          # red — and `git merge feat/x` afterwards prints "Already up to date."
+          # while the code stays gone. Never revert a promotion merge; roll
+          # forward with a hotfix. See RELEASING.md.
+          # Scan every commit this push INTRODUCED, not just the tip.
+          #
+          # Reading only `git log -1 HEAD` made this guard blind to the one shape a
+          # revert can actually take here. Squash and rebase merges are disabled, so
+          # a PR lands as a merge commit whose message is
+          # "Merge pull request #N ...\n\nRevert \"...\"" — the literal
+          # "This reverts commit <sha>" line lives in HEAD^2, never in HEAD. Clicking
+          # Revert in the GitHub UI and merging the PR it opens is therefore the
+          # NORMAL path, and it walked straight past this check. The only shape the
+          # old form caught was a revert hand-pushed to main, which the repo forbids.
+          # Reproduced end to end: back-merge exited 0, the feature vanished from
+          # staging and development, and a later `git merge` said "Already up to date."
+          #
+          # HEAD^1..HEAD covers both shapes: the merged side for a merge commit, and
+          # HEAD itself for a single-parent tip.
+          RANGE="HEAD"
+          if git rev-parse -q --verify 'HEAD^1' >/dev/null; then RANGE="HEAD^1..HEAD"; fi
+          REVERTED=$(git log --format=%B "$RANGE" \
+            | sed -n 's/^This reverts commit \([0-9a-f]\{7,40\}\).*/\1/p')
+          for sha in $REVERTED; do
+            git rev-parse -q --verify "$sha" >/dev/null || continue
+            if [ "$(git rev-list --parents -n1 "$sha" | wc -w)" -ge 3 ]; then
+              echo "::error::this push reverts merge commit $sha."
+              echo "::error::Back-merging it would silently delete that work from staging and"
+              echo "::error::development — a clean merge, nothing red, and a later \`git merge\`"
+              echo "::error::saying \"Already up to date.\" while the code is gone."
+              echo "::error::Roll forward with a hotfix instead. See RELEASING.md > Rollback."
+              exit 1
+            fi
+          done
+
+          sync () {
+            from="$1"; into="$2"
+            git ls-remote --exit-code --heads origin "$into" >/dev/null || {
+              echo "branch $into does not exist yet — skipping"
+              return 0
+            }
+            git checkout -B "$into" "origin/$into"
+            if git merge --no-ff -m "chore(release): back-merge $from into $into" "origin/$from"; then
+              for attempt in 1 2 3; do
+                git push origin "HEAD:$into" && return 0
+                echo "push rejected (attempt $attempt) — refetching"
+                git fetch --no-tags origin "$into"
+                git merge --no-ff -m "chore(release): back-merge $from into $into" "origin/$into" || {
+                  git merge --abort
+                  break
+                }
+                sleep $((attempt * 5))
+              done
+            fi
+            git merge --abort 2>/dev/null || true
+            branch="sync/$from-to-$into-${GITHUB_SHA::7}"
+            git push -f origin "origin/$from:refs/heads/$branch"
+            gh pr create --base "$into" --head "$branch" \
+              --title "chore(release): back-merge $from into $into" \
+              --body "The automatic back-merge failed. Resolve here — until this lands, \`$into\` will recompute versions that are already published, and the beta stamper's registry-monotonicity guard will refuse." || true
+            echo "::error::back-merge $from -> $into failed; PR opened"
+            exit 1
+          }
+
+          sync main staging
+          sync staging development
+
+      # GITHUB_TOKEN pushes do not trigger workflows, so the back-merge would
+      # otherwise land unvalidated and — worse — a hotfix GA would never reach
+      # beta pilots. Dispatch explicitly: a beta on staging (carries the fix to
+      # pilots), CI only on development (validation, no spurious canary publish).
+      - name: Wake the downstream channels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run release-beta.yml --ref staging || true
+          gh workflow run ci.yml           --ref development || true

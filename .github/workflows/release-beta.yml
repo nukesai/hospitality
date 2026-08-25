@@ -1,0 +1,54 @@
+name: Release (beta)
+
+on:
+  push:
+    branches: [staging]
+  # Dispatched by the production back-merge, so a hotfix reaches pilots.
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  HUSKY: "0"
+  NPM_CONFIG_PROVENANCE: "false"
+
+jobs:
+  gates:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  beta:
+    name: Publish beta
+    needs: [gates]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      - uses: ./.github/actions/release-setup
+        with: { cache-scope: beta }
+
+      # stamp-prerelease-version.mjs runs `changeset version` to learn the REAL
+      # next version (fixed-group lockstep already applied), then stamps
+      # <next>-beta.<utc14>.sha-<sha7> into the four manifests. Nothing is
+      # committed: only `main` commits version bumps, and that is what keeps
+      # staging -> main promotion merges conflict-free.
+      #
+      # An empty changeset queue publishes nothing and stays GREEN. A docs-only
+      # merge to staging is a legitimate no-op, not a failure.
+      - name: Publish to the beta channel
+        run: pnpm release:beta
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "false"
+          RELEASE_BRANCH: ${{ github.ref_name }}

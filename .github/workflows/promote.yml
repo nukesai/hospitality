@@ -1,0 +1,105 @@
+name: Promotion PRs
+
+# Keeps a standing promotion PR open at each step of the ladder, so "development
+# is complete" and "staging is complete" are expressed the way the rest of the
+# repo expresses decisions: by merging a PR. Nobody has to remember to open one.
+on:
+  push:
+    branches: [development, staging]
+  workflow_dispatch:
+
+concurrency:
+  group: promote-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  HUSKY: "0"
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  promote:
+    name: Open or refresh the promotion PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      - id: target
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            development) echo "base=staging" >> "$GITHUB_OUTPUT" ;;
+            staging)     echo "base=main"    >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::no promotion target for ${GITHUB_REF_NAME}"; exit 1 ;;
+          esac
+
+      - name: Skip when there is nothing to promote
+        id: diff
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "${{ steps.target.outputs.base }}"
+          n=$(git rev-list --count "origin/${{ steps.target.outputs.base }}..HEAD")
+          echo "ahead=$n" >> "$GITHUB_OUTPUT"
+          echo "$GITHUB_REF_NAME is $n commit(s) ahead of ${{ steps.target.outputs.base }}"
+
+      - if: steps.diff.outputs.ahead != '0'
+        uses: pnpm/action-setup@v6
+      - if: steps.diff.outputs.ahead != '0'
+        uses: actions/setup-node@v7
+        with: { node-version: 24, cache: pnpm }
+      - if: steps.diff.outputs.ahead != '0'
+        run: pnpm install --frozen-lockfile
+
+      # This is the pre-GA review the trunk-based Version PR used to provide, and
+      # it is FREE here: `changeset version` on a disposable checkout produces the
+      # exact version and the exact CHANGELOG that main will commit and publish.
+      # The tree is restored immediately afterwards; nothing is committed.
+      - if: steps.diff.outputs.ahead != '0'
+        id: preview
+        run: |
+          set -euo pipefail
+          if [ -z "$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' -print -quit)" ]; then
+            printf 'No pending changesets — this promotion publishes nothing.\n' > /tmp/body.md
+          else
+            pnpm exec changeset version
+            V=$(node -p "require('./packages/backend/package.json').version")
+            {
+              echo "## Next version: \`$V\`"
+              echo
+              echo "This is the exact version and changelog that merging to \`main\` will commit and publish."
+              echo
+              for p in common backend frontend cli; do
+                echo "<details><summary>@nukesai-pos/$p</summary>"
+                echo
+                awk "/^## ${V//./\\.}\$/{f=1;next}/^## /{f=0}f" "packages/$p/CHANGELOG.md"
+                echo
+                echo "</details>"
+              done
+            } > /tmp/body.md
+            git checkout -- .
+          fi
+
+      - if: steps.diff.outputs.ahead != '0'
+        name: Open or update the standing PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE: ${{ steps.target.outputs.base }}
+        run: |
+          set -euo pipefail
+          # `gh pr view` takes no --base, so a head+base lookup has to go through
+          # `gh pr list`. Addressing the PR by NUMBER also avoids the ambiguity of
+          # a branch name that has more than one open PR.
+          NUM=$(gh pr list --head "$GITHUB_REF_NAME" --base "$BASE" --state open \
+                  --json number --jq '.[0].number // empty')
+          if [ -n "$NUM" ]; then
+            gh pr edit "$NUM" --body-file /tmp/body.md
+            echo "refreshed PR #$NUM"
+          else
+            gh pr create --base "$BASE" --head "$GITHUB_REF_NAME" \
+              --title "chore(repo): promote $GITHUB_REF_NAME into $BASE" \
+              --body-file /tmp/body.md
+          fi
