@@ -9,6 +9,7 @@
   "scripts": {
     "build": "turbo run build",
     "changeset": "changeset",
+    "channels:verify": "node scripts/assert-release-channel.mjs",
     "check-types": "turbo run check-types",
     "coverage:canary": "node scripts/assert-coverage-gate-fails.mjs",
     "db:generate": "pnpm --filter @nukesai-pos/backend db:generate",
@@ -23,7 +24,8 @@
     "lint": "turbo run lint",
     "lint:bans": "node scripts/assert-lint-bans.mjs",
     "prepare": "husky",
-    "release": "turbo run build && pnpm publish -r --no-git-checks --access public --report-summary",
+    "release": "node scripts/resolve-release-channel.mjs --assert && turbo run build && pnpm publish -r --no-git-checks --access public --report-summary --tag \"$(node scripts/resolve-release-channel.mjs)\"",
+    "release:canary": "node scripts/stamp-canary-version.mjs && node scripts/resolve-release-channel.mjs --assert && turbo run build && pnpm publish -r --no-git-checks --access public --report-summary --tag \"$(node scripts/resolve-release-channel.mjs)\"",
     "size": "size-limit",
     "stack:down": "docker compose -f docker/compose.yaml down",
     "stack:nuke": "docker compose -f docker/compose.yaml down -v",
