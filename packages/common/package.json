@@ -1,6 +1,6 @@
 {
   "name": "@nukesai-pos/common",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": false,
   "description": "Shared i18n, types, schemas, constants and runtime guards for the Nukes AI POS platform. Safe on both server and client.",
   "keywords": [
