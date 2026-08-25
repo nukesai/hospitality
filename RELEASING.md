@@ -86,12 +86,28 @@ done
 | Tag              | Published and verified; only tags are missing.                               | Push the tags by hand (below).                                                                                                                                                                      |
 | Back-merge       | Published and tagged; `staging`/`development` are behind.                    | Read the error. If it refused a rollback propagation, that is deliberate — see Rollback. Otherwise resolve the `sync/*` PR it opened.                                                               |
 
-**npm is slower than it looks.** Measured from npm's own `time` records,
-`@nukesai-pos/cli` lands about **63 seconds** after the first package in the
-same `pnpm publish -r`, reproducibly. That is why
-`scripts/verify-published.mjs` waits 195 seconds. Do not shorten it to make a
-release "faster" — a false failure costs more than the wait, and it trains
-people to ignore a real one.
+**npm does not always store what `pnpm publish` says it stored.**
+`@nukesai-pos/cli` is the only package here with a `bin` field, which puts it
+through extra npm-side processing. Measured from npm's own `time` records:
+
+| canary    | stored after publish |
+| --------- | -------------------- |
+| `…042544` | ~3 min               |
+| `…054851` | ~5 min 30            |
+| `…065241` | ~1 min 30            |
+| `…070712` | ~2 min 30            |
+| `…072957` | **never**            |
+
+The other three land in about a second, every time, and npm reported "All
+Systems Operational" throughout. So this is normal behaviour for that package
+shape, not an outage.
+
+**No timeout covers "never", which is why the publish is retried rather than
+just the verification.** `scripts/release.mjs` runs up to 3 publish rounds,
+verifying after each. Publishing a version that already exists is a no-op, so
+the packages that landed are untouched and only the missing one is retried. If
+all 3 rounds fail, that is past what npm's processing delay explains — check
+`https://status.npmjs.org` and the packument directly before re-running.
 
 ### Pushing tags by hand
 
