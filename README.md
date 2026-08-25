@@ -1,10 +1,12 @@
 # Nukes POS
 
 Package-based point-of-sale platform for restaurants, bars and hotels — built by
-**Nukes AI & Software Solution** (<info@nukesai.com>). Proprietary; see [LICENSE](./LICENSE).
+**Nukes AI & Software Solution** (<info@nukesai.com>). Free software under
+[GPL-3.0-or-later](./LICENSE), with a commercial licence available — see
+[License](#license).
 
-This repository is a **package factory**, not an app. It publishes private,
-public npm packages under the `@nukesai-pos` scope that drop a full POS
+This repository is a **package factory**, not an app. It publishes public npm
+packages under the `@nukesai-pos` scope that drop a full POS
 backend (API) and admin panel into **any existing Next.js 16 application**:
 
 | Package                                        | Runtime         | What it is                                           |
@@ -93,7 +95,12 @@ workflow versions and publishes (`public` access) from `main`.
 
 GPL-3.0-or-later. See [LICENSE](./LICENSE).
 
-This is copyleft: an application that installs `@nukesai-pos/*` and distributes
+This is copyleft: an application that installs `@nukesai-pos/*` and **distributes**
 the result is a derivative work and must be released under the GPL too. If you
 need to embed the POS in a closed-source product, contact
 <info@nukesai.com> about a separate commercial licence.
+
+Note that running the POS as a hosted service is **not** distribution under the
+GPL, so a SaaS operator can build on these packages without releasing their
+own source. AGPL-3.0 is the licence that closes that gap; GPL-3.0 deliberately
+does not.
