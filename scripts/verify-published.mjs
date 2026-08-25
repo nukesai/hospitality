@@ -37,7 +37,7 @@ const arg = (flag, fallback) => {
   return i !== -1 && process.argv[i + 1] !== undefined ? process.argv[i + 1] : fallback;
 };
 
-const packageNames = () =>
+export const packageNames = () =>
   PUBLISHED.map(
     (dir) => JSON.parse(readFileSync(path.join(ROOT, `packages/${dir}/package.json`), "utf8")).name,
   );
@@ -45,7 +45,7 @@ const packageNames = () =>
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Registry metadata, cache-busted — npm's CDN can serve a stale document. */
-const fetchPackument = async (name) => {
+export const fetchPackument = async (name) => {
   const response = await fetch(`${REGISTRY}/${name.replace("/", "%2f")}`, {
     headers: { accept: "application/json", "cache-control": "no-cache" },
   });
@@ -118,4 +118,4 @@ const main = async () => {
   );
 };
 
-await main();
+if (process.argv[1] === import.meta.filename) await main();

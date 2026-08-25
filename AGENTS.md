@@ -153,6 +153,14 @@ queue. `scripts/stamp-canary-version.mjs` writes the version directly, so all
 three channels work simultaneously. It mutates the working tree and must never
 be committed.
 
+`scripts/release.mjs` is the single publish entry point (`pnpm release`,
+`pnpm release:canary`). It probes the registry FIRST and exits 0 when the
+current version is already published everywhere — changesets/action runs the
+publish script on every main build with no pending changesets ("No changesets
+found. Attempting to publish any unpublished packages to npm"), so a docs-only
+merge must be a no-op, not a red build. The fail-closed channel guard runs only
+when a publish is actually real.
+
 A publish is not done until the REGISTRY says so. `pnpm publish` printing
 `✅ Published package ...` is not proof: on run 32808766986 it printed exactly
 that for `@nukesai-pos/cli`, exited 0, and the registry 404s that version — the
