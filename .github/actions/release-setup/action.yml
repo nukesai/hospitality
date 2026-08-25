@@ -1,0 +1,49 @@
+name: Release setup
+description: >
+  Toolchain, install and registry auth for a publish job. Checkout stays in the
+  caller: a local composite action cannot run before the repo that contains it
+  exists on disk. The quality gates are NOT here — the caller runs ci.yml as a
+  reusable workflow, which is the same suite the PR ran, e2e included.
+
+inputs:
+  cache-scope:
+    description: Turborepo cache key scope (canary | beta | production).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+
+    - uses: actions/setup-node@v7
+      # Deliberately NO registry-url — we write $HOME/.npmrc ourselves so nothing
+      # can shadow it mid-publish.
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - uses: actions/cache@v6
+      with:
+        path: .turbo/cache
+        key: turbo-${{ inputs.cache-scope }}-${{ runner.os }}-${{ github.sha }}
+        restore-keys: |
+          turbo-${{ inputs.cache-scope }}-${{ runner.os }}-
+          turbo-${{ runner.os }}-
+
+    # HUSKY=0 is set at workflow level, so `prepare: husky` returns
+    # 'HUSKY=0 skip install' (husky index.js) and core.hooksPath is never set.
+    # Without it the production job's `git commit` would run lint-staged and
+    # commitlint, and `git push` would run `turbo run check-types lint` — a full
+    # typecheck INSIDE the release, on the one step that must not half-complete.
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    # Single quotes are load-bearing: the literal ${NPM_TOKEN} must land in the
+    # file. npm/pnpm expand it from the environment at read time, so the token is
+    # never written to disk.
+    - name: Configure npm registry auth
+      shell: bash
+      run: |
+        printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' > "$HOME/.npmrc"
+        printf '@nukesai-pos:registry=https://registry.npmjs.org/\n' >> "$HOME/.npmrc"

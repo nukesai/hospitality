@@ -1,0 +1,60 @@
+name: Release (canary)
+
+on:
+  push:
+    branches: [development]
+  workflow_dispatch:
+
+# Per-branch, never global. The three channels can never compute the same
+# version and each writes a different dist-tag, so cross-branch racing is not
+# the risk. A single global lock WOULD be harmful: a burst of development
+# pushes could drop a pending production run.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  HUSKY: "0"
+  # Provenance is structurally impossible for restricted packages
+  # (libnpmpublish throws unless access is public). Fail closed.
+  NPM_CONFIG_PROVENANCE: "false"
+
+jobs:
+  gates:
+    uses: ./.github/workflows/ci.yml
+    # This repository is PRIVATE, and a called workflow can only ever be granted
+    # permissions the caller already has. With the workflow-level `permissions: {}`
+    # above and nothing here, ci.yml would inherit zero scopes and every
+    # actions/checkout inside it would fail to clone.
+    permissions:
+      contents: read
+
+  canary:
+    name: Publish canary
+    needs: [gates]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      - uses: ./.github/actions/release-setup
+        with: { cache-scope: canary }
+
+      # 0.0.0-canary-<utc>-<sha> is stamped into the four manifests and NEVER
+      # committed — this checkout is disposable. The version is unreachable by
+      # any ordinary semver range, so it can only be installed on purpose.
+      - name: Publish to the canary channel
+        run: pnpm release:canary
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "false"
+          # NEVER hardcoded. A literal branch name here would turn
+          # workflow_dispatch into a path from any ref to this channel.
+          RELEASE_BRANCH: ${{ github.ref_name }}

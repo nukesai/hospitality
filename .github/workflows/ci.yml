@@ -1,10 +1,15 @@
 name: CI
 
+# `push:` triggers are deliberately absent. Every merge target is PR-gated, and
+# each release workflow calls this same suite as a reusable workflow before it
+# publishes — so a commit that reaches development/staging/main has already run
+# these gates twice, not three times. That is what keeps the Docker/Playwright
+# e2e job at 3 runs per feature instead of 6.
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, staging, development]
+  workflow_call: # the release workflows call this as their pre-publish gate
+  workflow_dispatch: # the back-merge dispatches this on development
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -45,6 +50,35 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Scoped to feature PRs into `development` ONLY. On any other base this
+      # gate is not merely useless but actively wrong: on the back-merge
+      # recovery PR (head = main after a release, base = a lagging staging) it
+      # exits 1 forever, because status.mjs:20 passes `since` to readChangesets
+      # so the consumed changesets vanish while `package.json` still counts as a
+      # changed package. Reproduced: "Some packages have been changed but no
+      # changesets were found."
+      - name: Require a changeset for versionable changes
+        if: github.event_name == 'pull_request' && github.base_ref == 'development'
+        run: |
+          git fetch --no-tags origin +refs/heads/development:refs/heads/development
+          pnpm exec changeset status --since=development
+
+      # Versioning is FIXED across the four published packages, so a changeset
+      # that names only some of them still bumps all four — and the ones it did
+      # not name get a bare `## X.Y.Z` heading with no notes under it. Verified
+      # on this repo: a backend-only changeset left packages/common/CHANGELOG.md
+      # with an empty 0.2.0 section.
+      - name: Require every changeset to cover the whole fixed group
+        run: pnpm changesets:verify
+
+      # The release pipeline is five workflow files that publish to npm, so the
+      # workflows are load-bearing code and get linted like code. actionlint
+      # checks expression contexts, `needs` references, action inputs, and runs
+      # shellcheck over every `run:` block — none of which a YAML parse catches.
+      # Verified to fail on a bad context and a dangling `needs`.
+      - name: Lint the workflows themselves
+        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.7 -color
 
       - name: Verify dependency version alignment (catalog policy)
         run: pnpm syncpack:lint
