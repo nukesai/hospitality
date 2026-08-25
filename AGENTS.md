@@ -120,59 +120,72 @@ ships.
 
 ### Release channels
 
-Trunk-based. One branch (`main`); the channel is decided by the npm dist-tag,
-never by a branch.
+**The branch is the channel. Nothing else selects it.** There is no flag to
+remember, no pre mode to enter and exit, and no environment variable to type.
 
-| Channel | Version                   | dist-tag | Trigger                                                      |
-| ------- | ------------------------- | -------- | ------------------------------------------------------------ |
-| canary  | `0.0.0-canary-<ts>-<sha>` | `canary` | every push to main that is not a Version PR merge            |
-| beta    | `0.2.0-beta.N`            | `beta`   | Version PR merged while in changesets pre mode               |
-| prod    | `0.2.0`                   | `latest` | Version PR merged, pre mode exited, `RELEASE_ALLOW_LATEST=1` |
+| Branch        | Merging into it publishes           | Version                          | dist-tag | Commits versions    |
+| ------------- | ----------------------------------- | -------------------------------- | -------- | ------------------- |
+| `development` | a canary, every push                | `0.0.0-canary-<utc14>-<sha7>`    | `canary` | no                  |
+| `staging`     | a beta, when the queue is non-empty | `<next>-beta.<utc14>.sha-<sha7>` | `beta`   | no                  |
+| `main`        | a GA                                | `<next>`                         | `latest` | **yes — only here** |
 
-`scripts/resolve-release-channel.mjs` derives the tag from repository state and
-**fails closed** — there is no default channel, so a publish with nothing
-selected refuses rather than guessing `latest`. `pnpm channels:verify` proves
-all 11 states still refuse correctly (CI runs it).
+Promotion is by merge: `feat/*` → `development` → `staging` → `main`. Each rung
+has a standing promotion PR that `promote.yml` opens and keeps refreshed, with
+the exact next version and the exact CHANGELOG in its body. Merging it is the
+decision; merging `staging` → `main` **is** the release decision, and there is
+no second approval.
 
-**`publishConfig.tag` is defence-in-depth only — pnpm does not read it.** Its
-bundle references `publishConfig.{directory,executableFiles,registry,linkDirectory}`
-and never `.tag`, and `pnpm publish --help` says "By default, the 'latest' tag
-is used". The field is set to `canary` on all four packages so that a stray
-`npm publish` (npm _does_ read it) lands somewhere harmless. The real guard is
-the explicit `--tag` in the `release` script.
+Only `main` commits version bumps. That is not a detail — it is what keeps
+promotion merges conflict-free, because `staging` and `development` never touch
+the eight files a release rewrites.
 
-Beta train: `pnpm changeset pre enter beta`, commit `.changeset/pre.json`, then
-merge Version PRs as usual — each one bumps `beta.N` on the same version tuple,
-so `^0.2.0-beta.0` consumers track the whole train and receive the GA release.
-Go live with `pnpm changeset pre exit`, then set `RELEASE_ALLOW_LATEST=1` on the
-`release` environment deliberately.
+**Merge commits only.** `allow_squash_merge` and `allow_rebase_merge` must stay
+off. A squashed promotion leaves the consumed changesets alive on `staging` and
+`development`, which republishes shipped release notes and can re-bump a minor.
+Verified.
 
-Canary deliberately does NOT use `changeset version --snapshot`: it is refused
-in pre mode, exits 1 when no changesets are pending, and consumes the changeset
-queue. `scripts/stamp-canary-version.mjs` writes the version directly, so all
-three channels work simultaneously. It mutates the working tree and must never
-be committed.
+**`.changeset/pre.json` must never exist.** Pre mode cannot advance its `-beta.N`
+counter without committed state, and a `pre.json` that reaches `main` publishes
+production to the beta tag _even with_ `RELEASE_ALLOW_LATEST=1`. Its presence is
+a hard refusal.
 
-`scripts/release.mjs` is the single publish entry point (`pnpm release`,
-`pnpm release:canary`). It probes the registry FIRST and exits 0 when the
-current version is already published everywhere — changesets/action runs the
-publish script on every main build with no pending changesets ("No changesets
-found. Attempting to publish any unpublished packages to npm"), so a docs-only
-merge must be a no-op, not a red build. The fail-closed channel guard runs only
-when a publish is actually real.
+**Every changeset names all four published packages.** Versioning is fixed, so a
+changeset naming only one still bumps all four — and the others get a bare
+`## X.Y.Z` heading with no notes. `pnpm changesets:verify` enforces this.
 
-A publish is not done until the REGISTRY says so. `pnpm publish` printing
-`✅ Published package ...` is not proof: on run 32808766986 it printed exactly
-that for `@nukesai-pos/cli`, exited 0, and the registry 404s that version — the
-fixed group was split on npm and the job went green. Both release scripts now
-end in `scripts/verify-published.mjs`, which asks the registry (cache-busted,
-with backoff) that every package in the fixed group exists at the expected
-version AND that the dist-tag resolves to it. Re-running a release is safe:
-publishing an already-published version is a no-op.
+**A publish is not done until the REGISTRY says so.** `pnpm publish` has printed
+`Published` for a package the registry 404s. `scripts/verify-published.mjs` asks
+the registry and is the last word.
 
-Rollback is a dist-tag move, not a republish:
-`npm dist-tag add @nukesai-pos/backend@<last good> latest` — applied to **all
-four** packages, or consumers get a split install.
+**Nothing to publish must be a no-op, not a failure.** A docs-only merge reaches
+every release workflow with an empty queue and must stay green.
+
+**`publishConfig.tag` is a no-op under pnpm** — pnpm never reads it. The dist-tag
+must arrive as an explicit `--tag`, which `scripts/resolve-release-channel.mjs`
+computes from the branch.
+
+**Branch protection is not available on this plan** (403 "Upgrade to GitHub
+Pro"). Production is locked by four independent keys instead: `ref_name`,
+`RELEASE_ALLOW_LATEST` scoped to the `production` environment, a HEAD that must
+be a merge commit, and the branch-keyed shape check in the guard. Because the
+lock lives in the repo, `pnpm channels:verify` runs on every PR and every
+release.
+
+**`changeset status` needs a local `main`.** A clone that only has `development`
+makes it exit 1. Use `pnpm changeset:status`, which fetches the ref first.
+
+**Never `git revert -m 1` a promotion merge on `main`.** The back-merge would
+silently delete that work from `staging` and `development` — clean merge, nothing
+red, and a later `git merge` says "Already up to date." while the code is gone.
+Roll forward with a `hotfix/*` instead. Full procedure: [RELEASING.md](./RELEASING.md).
+
+Commands:
+
+```bash
+pnpm changesets:verify   # every changeset covers the whole fixed group
+pnpm channels:verify     # the channel guard still refuses (20 asserted states)
+pnpm changeset:status    # what the next version would be, with a fetched main
+```
 
 ## 6. Toolchain facts you will trip over
 
