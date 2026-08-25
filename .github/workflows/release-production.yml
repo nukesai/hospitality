@@ -62,8 +62,24 @@ jobs:
           # merge, whose HEAD^2 is a hotfix/* tip.
           if ! git rev-parse -q --verify 'HEAD^2' >/dev/null; then
             if [ "$QUEUE" -eq 0 ]; then
-              echo "main tip is not a merge commit and the queue is empty — nothing to do."
-              echo "skip=true" >> "$GITHUB_OUTPUT"
+              # Not a merge tip and nothing queued. That is USUALLY nothing to do
+              # — but it is also exactly the state a half-finished release leaves
+              # behind: the version commit is on main (single parent, queue
+              # consumed) and the publish failed afterwards. Deciding from the
+              # shape of HEAD alone made that UNRECOVERABLE: a re-run of the job
+              # died on a non-fast-forward push, and a workflow_dispatch re-run
+              # reported "nothing to do" and exited green while npm never got the
+              # version. Ask the registry instead of guessing from git.
+              VERSION="$(node -p "require('./packages/backend/package.json').version")"
+              if node scripts/verify-published.mjs --version "$VERSION" --tag latest --retries 1; then
+                echo "$VERSION is fully published — nothing to do."
+                echo "skip=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              echo "::warning::$VERSION is committed on main but is NOT fully published."
+              echo "::warning::Resuming the publish for it. The version step is skipped; only the publish runs."
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              echo "queue=0"    >> "$GITHUB_OUTPUT"
               exit 0
             fi
             echo "::error::main tip is not a merge commit but $QUEUE changeset(s) are pending."
@@ -167,14 +183,36 @@ jobs:
           # red — and `git merge feat/x` afterwards prints "Already up to date."
           # while the code stays gone. Never revert a promotion merge; roll
           # forward with a hotfix. See RELEASING.md.
-          REVERTED=$(git log -1 --format=%B HEAD \
-            | sed -n 's/^This reverts commit \([0-9a-f]\{7,40\}\).*/\1/p' | head -1)
-          if [ -n "$REVERTED" ] && [ "$(git rev-list --parents -n1 "$REVERTED" | wc -w)" -ge 3 ]; then
-            echo "::error::main tip reverts merge commit $REVERTED."
-            echo "::error::Back-merging it would silently delete that work from staging and"
-            echo "::error::development. Roll forward with a hotfix instead (see RELEASING.md)."
-            exit 1
-          fi
+          # Scan every commit this push INTRODUCED, not just the tip.
+          #
+          # Reading only `git log -1 HEAD` made this guard blind to the one shape a
+          # revert can actually take here. Squash and rebase merges are disabled, so
+          # a PR lands as a merge commit whose message is
+          # "Merge pull request #N ...\n\nRevert \"...\"" — the literal
+          # "This reverts commit <sha>" line lives in HEAD^2, never in HEAD. Clicking
+          # Revert in the GitHub UI and merging the PR it opens is therefore the
+          # NORMAL path, and it walked straight past this check. The only shape the
+          # old form caught was a revert hand-pushed to main, which the repo forbids.
+          # Reproduced end to end: back-merge exited 0, the feature vanished from
+          # staging and development, and a later `git merge` said "Already up to date."
+          #
+          # HEAD^1..HEAD covers both shapes: the merged side for a merge commit, and
+          # HEAD itself for a single-parent tip.
+          RANGE="HEAD"
+          if git rev-parse -q --verify 'HEAD^1' >/dev/null; then RANGE="HEAD^1..HEAD"; fi
+          REVERTED=$(git log --format=%B "$RANGE" \
+            | sed -n 's/^This reverts commit \([0-9a-f]\{7,40\}\).*/\1/p')
+          for sha in $REVERTED; do
+            git rev-parse -q --verify "$sha" >/dev/null || continue
+            if [ "$(git rev-list --parents -n1 "$sha" | wc -w)" -ge 3 ]; then
+              echo "::error::this push reverts merge commit $sha."
+              echo "::error::Back-merging it would silently delete that work from staging and"
+              echo "::error::development — a clean merge, nothing red, and a later \`git merge\`"
+              echo "::error::saying \"Already up to date.\" while the code is gone."
+              echo "::error::Roll forward with a hotfix instead. See RELEASING.md > Rollback."
+              exit 1
+            fi
+          done
 
           sync () {
             from="$1"; into="$2"

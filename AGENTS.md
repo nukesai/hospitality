@@ -172,7 +172,9 @@ lock lives in the repo, `pnpm channels:verify` runs on every PR and every
 release.
 
 **`changeset status` needs a local `main`.** A clone that only has `development`
-makes it exit 1. Use `pnpm changeset:status`, which fetches the ref first.
+makes it exit 1. Use `pnpm changeset:status`, which fetches the ref first — and
+skips the fetch when you are already on `main`, because git refuses to fetch into
+the branch you have checked out.
 
 **Never `git revert -m 1` a promotion merge on `main`.** The back-merge would
 silently delete that work from `staging` and `development` — clean merge, nothing

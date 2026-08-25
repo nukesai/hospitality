@@ -9,7 +9,7 @@
   "scripts": {
     "build": "turbo run build",
     "changeset": "changeset",
-    "changeset:status": "git fetch --no-tags origin +refs/heads/main:refs/heads/main && changeset status",
+    "changeset:status": "sh -c 'test \"$(git rev-parse --abbrev-ref HEAD)\" = main || git fetch --no-tags origin +refs/heads/main:refs/heads/main' && changeset status",
     "changesets:verify": "node scripts/assert-changeset-covers-group.mjs",
     "channels:verify": "node scripts/assert-release-channel.mjs",
     "check-types": "turbo run check-types",
