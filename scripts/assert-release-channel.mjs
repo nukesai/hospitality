@@ -58,6 +58,20 @@ const CASES = [
     "REFUSE",
   ],
   [
+    // THE case the stamp design exists for. `changeset version --snapshot` is
+    // refused in pre mode, which would switch canary off for a whole beta
+    // train; stamping the version directly keeps both channels live. If this
+    // ever returns "beta", canary has silently stopped working mid-train.
+    "canary DURING a beta train — both channels stay live",
+    { versions: v("0.0.0-canary-20260824062507"), pre: PRE_BETA, allowLatest: false },
+    "canary",
+  ],
+  [
+    "canary during a beta train still cannot be promoted",
+    { versions: v("0.0.0-canary-20260824062507"), pre: PRE_BETA, allowLatest: true },
+    "REFUSE",
+  ],
+  [
     "fixed group out of lockstep",
     {
       versions: [
