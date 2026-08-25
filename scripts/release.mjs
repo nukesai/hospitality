@@ -20,7 +20,7 @@
  *   2. probe    — already on the registry at this version? then exit 0, quietly
  *   3. guard    — resolve the dist-tag from the BRANCH, fail closed
  *   4. build
- *   5. publish  — with the resolved --tag
+ *   5. publish  — with the resolved --tag, retried up to 3 rounds
  *   6. verify   — the registry, not pnpm's output, decides success
  *   7. graduate — on production only, move `beta` up to the GA version
  *
@@ -116,20 +116,74 @@ const main = async () => {
   const tag = capture("node", ["scripts/resolve-release-channel.mjs"]).trim();
 
   run("pnpm", ["turbo", "run", "build"]);
-  run("pnpm", [
-    "publish",
-    "-r",
-    "--no-git-checks",
-    "--access",
-    "public",
-    "--report-summary",
-    "--tag",
-    tag,
-  ]);
 
-  // pnpm prints "Published" for packages the registry 404s (run 32808766986),
-  // so the registry gets the last word.
-  run("node", ["scripts/verify-published.mjs", "--version", version, "--tag", tag]);
+  // RETRY THE PUBLISH, NOT JUST THE VERIFICATION.
+  //
+  // `pnpm publish` reports success for a package npm never actually stores.
+  // Observed repeatedly on @nukesai-pos/cli — the only package here with a
+  // `bin` field, which puts it through extra npm-side processing:
+  //
+  //     0.0.0-canary-20260825042544  stored ~3m   after publish
+  //     0.0.0-canary-20260825054851  stored ~5m30 after publish
+  //     0.0.0-canary-20260825065241  stored ~1m30 after publish
+  //     0.0.0-canary-20260825070712  stored ~2m30 after publish
+  //     0.0.0-canary-20260825072957  NEVER STORED
+  //
+  // The other three land in about a second, every time, and npm reported
+  // "All Systems Operational" throughout. So waiting longer is not the fix: no
+  // timeout covers "never". Re-publishing is, because publishing a version that
+  // already exists is a no-op — the packages that landed are untouched and only
+  // the missing one is retried.
+  const publishOnce = () =>
+    run("pnpm", [
+      "publish",
+      "-r",
+      "--no-git-checks",
+      "--access",
+      "public",
+      "--report-summary",
+      "--tag",
+      tag,
+    ]);
+
+  /** Verify without exiting, so a miss can trigger another publish round. */
+  const verified = () => {
+    try {
+      execFileSync("node", ["scripts/verify-published.mjs", "--version", version, "--tag", tag], {
+        cwd: ROOT,
+        stdio: "inherit",
+        encoding: "utf8",
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const ROUNDS = 3;
+  let landed = false;
+  for (let round = 1; round <= ROUNDS && !landed; round += 1) {
+    if (round > 1) {
+      process.stderr.write(
+        `\n  round ${String(round)}/${String(ROUNDS)}: re-publishing what the registry is missing.\n`
+          + "  (publishing an already-published version is a no-op)\n\n",
+      );
+    }
+    publishOnce();
+    landed = verified();
+  }
+
+  if (!landed) {
+    process.stderr.write(
+      `\nRELEASE FAILED: ${version} is still not fully on the registry after ${String(ROUNDS)} `
+        + "publish rounds.\n"
+        + "  This is past what npm's own processing delay explains. Check\n"
+        + "  https://status.npmjs.org and the packument directly before re-running:\n"
+        + `    curl -s https://registry.npmjs.org/@nukesai-pos%2fcli | jq '.versions["${version}"] != null'\n`
+        + "  See RELEASING.md > When a release goes red.\n\n",
+    );
+    process.exit(1);
+  }
 
   if (tag === "latest") {
     // Graduate the QA channel onto the GA build. Without this, `beta` keeps
