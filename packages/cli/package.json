@@ -63,6 +63,6 @@
     "access": "public",
     "provenance": false,
     "registry": "https://registry.npmjs.org/",
-    "tag": "latest"
+    "tag": "canary"
   }
 }

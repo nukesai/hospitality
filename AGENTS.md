@@ -118,6 +118,45 @@ ships.
   `changeset publish` (ships literal `workspace:^`) — release via the root
   `release` script only.
 
+### Release channels
+
+Trunk-based. One branch (`main`); the channel is decided by the npm dist-tag,
+never by a branch.
+
+| Channel | Version                   | dist-tag | Trigger                                                      |
+| ------- | ------------------------- | -------- | ------------------------------------------------------------ |
+| canary  | `0.0.0-canary-<ts>-<sha>` | `canary` | every push to main that is not a Version PR merge            |
+| beta    | `0.2.0-beta.N`            | `beta`   | Version PR merged while in changesets pre mode               |
+| prod    | `0.2.0`                   | `latest` | Version PR merged, pre mode exited, `RELEASE_ALLOW_LATEST=1` |
+
+`scripts/resolve-release-channel.mjs` derives the tag from repository state and
+**fails closed** — there is no default channel, so a publish with nothing
+selected refuses rather than guessing `latest`. `pnpm channels:verify` proves
+all 11 states still refuse correctly (CI runs it).
+
+**`publishConfig.tag` is defence-in-depth only — pnpm does not read it.** Its
+bundle references `publishConfig.{directory,executableFiles,registry,linkDirectory}`
+and never `.tag`, and `pnpm publish --help` says "By default, the 'latest' tag
+is used". The field is set to `canary` on all four packages so that a stray
+`npm publish` (npm _does_ read it) lands somewhere harmless. The real guard is
+the explicit `--tag` in the `release` script.
+
+Beta train: `pnpm changeset pre enter beta`, commit `.changeset/pre.json`, then
+merge Version PRs as usual — each one bumps `beta.N` on the same version tuple,
+so `^0.2.0-beta.0` consumers track the whole train and receive the GA release.
+Go live with `pnpm changeset pre exit`, then set `RELEASE_ALLOW_LATEST=1` on the
+`release` environment deliberately.
+
+Canary deliberately does NOT use `changeset version --snapshot`: it is refused
+in pre mode, exits 1 when no changesets are pending, and consumes the changeset
+queue. `scripts/stamp-canary-version.mjs` writes the version directly, so all
+three channels work simultaneously. It mutates the working tree and must never
+be committed.
+
+Rollback is a dist-tag move, not a republish:
+`npm dist-tag add @nukesai-pos/backend@<last good> latest` — applied to **all
+four** packages, or consumers get a split install.
+
 ## 6. Toolchain facts you will trip over
 
 - `typescript@7` is the Go-native compiler. It has no tsserver and no JS API;

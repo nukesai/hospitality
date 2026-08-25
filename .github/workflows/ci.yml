@@ -58,6 +58,9 @@ jobs:
       - name: Prove the boundary bans survive into the effective config
         run: pnpm lint:bans
 
+      - name: Prove the release-channel guard still refuses
+        run: pnpm channels:verify
+
       - name: Typecheck (TypeScript 7)
         run: pnpm turbo run check-types
 

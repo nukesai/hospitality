@@ -85,6 +85,27 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "false"
 
+      # Runs on every main build EXCEPT the one where the Version PR merge just
+      # published a real release — that build already shipped beta or latest.
+      #
+      # This must live in THIS job, not a separate one: NPM_TOKEN is scoped to
+      # the `release` environment (repo-level secrets are empty), so a job
+      # without `environment: release` could not authenticate. Sharing the job
+      # also shares the concurrency group, so a canary can never race the
+      # Version PR flow.
+      #
+      # stamp-canary-version.mjs rewrites the four manifests in place and is
+      # NEVER committed — the checkout is thrown away when the job ends. It
+      # deliberately does not use `changeset version --snapshot`, which is
+      # refused while in pre mode, exits 1 with no pending changesets, and
+      # consumes the changeset queue.
+      - name: Publish canary
+        if: steps.changesets.outputs.published != 'true'
+        run: pnpm release:canary
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "false"
+
       - name: Summarise published packages
         if: steps.changesets.outputs.published == 'true'
         run: |
