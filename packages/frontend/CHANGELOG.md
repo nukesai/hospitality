@@ -1,5 +1,11 @@
 # @nukesai-pos/frontend
 
+## 0.2.0
+
+### Patch Changes
+
+- @nukesai-pos/common@0.2.0
+
 ## 0.1.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@nukesai-pos/backend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "description": "Nukes AI POS server-side business logic and data-access ports. SERVER ONLY.",
   "keywords": [
