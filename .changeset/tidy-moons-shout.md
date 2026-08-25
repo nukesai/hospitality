@@ -1,5 +1,8 @@
 ---
+"@nukesai-pos/common": patch
 "@nukesai-pos/backend": patch
+"@nukesai-pos/frontend": patch
+"@nukesai-pos/cli": patch
 ---
 
 Default publish channel is now `canary` rather than `latest`.

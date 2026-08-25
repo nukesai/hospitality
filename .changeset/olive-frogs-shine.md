@@ -1,5 +1,8 @@
 ---
+"@nukesai-pos/common": patch
 "@nukesai-pos/backend": patch
+"@nukesai-pos/frontend": patch
+"@nukesai-pos/cli": patch
 ---
 
 Release pipeline now verifies against the npm registry that a publish actually
