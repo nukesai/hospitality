@@ -110,10 +110,15 @@ ships.
   logical change per commit.
 - Every user-visible package change needs a changeset (`pnpm changeset`).
   Versioning is FIXED across the four published packages.
+- **Branch from `development`; open the PR into `development`.** `main` is the
+  base for `hotfix/*` only. Promotion up the ladder happens by merging the
+  standing promotion PRs that `promote.yml` keeps open — never by branching
+  around them. Create a long-lived branch only from a freshly fetched base.
 - **Features are delivered through the gstack workflow**: `/spec` to turn
   intent into a precise ticket → implement → `/review` before landing →
-  `/ship` to create the PR → `/land-and-deploy` to merge. Do not push to main
-  or open PRs by hand when gstack skills are available.
+  `/ship` to create the PR → `/land-and-deploy` to merge. Do not push to
+  `main`, `staging` or `development` directly, and do not open PRs by hand
+  when gstack skills are available.
 - Never run `syncpack format` (fights prettier-plugin-packagejson). Never use
   `changeset publish` (ships literal `workspace:^`) — release via the root
   `release` script only.

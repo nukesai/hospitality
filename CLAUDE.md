@@ -37,23 +37,63 @@ test read `dist/` and `apps/example`). Single package:
 `pnpm exec vitest run --project backend`. Live stack: `pnpm stack:up`, then
 `E2E_STACK=1 pnpm e2e` for the full suite.
 
+## Branches and channels (read this before creating any branch)
+
+Three long-lived branches. **The branch that receives a merge is the only thing
+that selects an npm channel** — there is no flag, no pre mode, no env var.
+
+| Branch        | Merging into it publishes           | Version                          | dist-tag | Commits versions    |
+| ------------- | ----------------------------------- | -------------------------------- | -------- | ------------------- |
+| `development` | a canary, every push                | `0.0.0-canary-<utc14>-<sha7>`    | `canary` | no                  |
+| `staging`     | a beta, when the queue is non-empty | `<next>-beta.<utc14>.sha-<sha7>` | `beta`   | no                  |
+| `main`        | a GA                                | `<next>`                         | `latest` | **yes — only here** |
+
+```
+feat/*  ──PR──▶  development  ──promotion PR──▶  staging  ──promotion PR──▶  main
+                   @canary                       @beta                     @latest
+```
+
+**Branch feature work from `development`, and open the PR into `development`.**
+Not `main`. `main` is the base only for `hotfix/*`, which is the one branch
+allowed to cut from it.
+
+Promotion PRs are opened and refreshed automatically by `promote.yml`; merging
+one is the decision, and merging `staging → main` **is** the release decision.
+Only `main` commits version bumps — that is what keeps promotion merges
+conflict-free, so never move version bumping onto another branch.
+
+`RELEASING.md` is the runbook: normal flow, hotfix lane, and the three-tier
+rollback. Read it before any release, rollback, or branch surgery.
+
 ## Delivery workflow (gstack)
 
 Use the gstack skills — do not hand-roll the process:
 
 1. `/spec` — turn intent into a precise ticket before non-trivial work
-2. implement on a branch, committing per logical change (scoped conventional
-   commits; scopes listed in AGENTS.md §5)
-3. `/review` — pre-landing review of the diff
-4. `/ship` — tests, changelog, PR creation
-5. `/land-and-deploy` — merge + verify
+2. branch **from `development`**, committing per logical change (scoped
+   conventional commits; scopes listed in AGENTS.md §5)
+3. `pnpm changeset` — bump level plus a prose note, naming **all four**
+   published packages
+4. `/review` — pre-landing review of the diff
+5. `/ship` — tests, changeset, PR creation (base: `development`)
+6. `/land-and-deploy` — merge + verify
 
-Never push to `main` directly and never open a PR by hand.
+Never push to `main`, `staging`, or `development` directly, and never open a PR
+by hand.
 
 ## Traps that have actually bitten this repo
 
 Each of these compiled, passed tests, and was still wrong. Verify, do not assume.
 
+- **Branch from `development`, and create long-lived branches only from a
+  FRESHLY FETCHED base.** `staging` and `development` were once cut from a local
+  `main` that had not been pulled, so both landed 9 commits behind and carried
+  none of the release workflows — pushes to them published nothing, silently.
+  `git fetch` first, and check `git rev-list --count origin/<b>..origin/main`.
+- **npm takes ~63s to publish `@nukesai-pos/cli` after the first package** in
+  the same `pnpm publish -r` (measured from npm's own `time` records, twice). A
+  release verifier that waits less reddens correct releases. Never shorten
+  `scripts/verify-published.mjs`'s retry budget to "speed up" a release.
 - **ESLint flat config replaces rule options wholesale.** Adding a second block
   for `no-restricted-imports` silently deleted an earlier ban — and a deleted
   ban simply never fires, so nothing went red. Merge; then `pnpm lint:bans`.

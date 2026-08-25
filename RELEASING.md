@@ -63,6 +63,87 @@ from `staging`.
 
 ---
 
+## When a release goes red
+
+A red release run does NOT mean nothing was published. Diagnose in this order —
+the registry is the source of truth, not the workflow's colour.
+
+```bash
+GH_PAGER=cat gh run view <run-id> --log-failed | tail -40
+for p in common backend frontend cli; do
+  printf '%-10s ' "$p"
+  curl -s -H 'cache-control: no-cache' "https://registry.npmjs.org/@nukesai-pos%2f$p" \
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(JSON.parse(s)["dist-tags"])))'
+done
+```
+
+| Failed at        | What is true                                                                 | What to do                                                                                                                                                                                          |
+| ---------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pre-flight       | Nothing ran. No version commit, no publish.                                  | Fix the cause and re-run. Safe.                                                                                                                                                                     |
+| Version + commit | `main` carries a version bump for an unpublished version.                    | Re-run the workflow. The pre-flight probes the registry and resumes the publish.                                                                                                                    |
+| Publish          | Some packages may be up, some not.                                           | Re-run. Publishing an already-published version is a no-op; the registry probe skips what landed.                                                                                                   |
+| **Verify**       | **Everything probably published.** Check the registry before doing anything. | If all four are present and correctly tagged, the release succeeded and only the check was impatient. Push the tags by hand (below) — the tag step is gated on the publish step, so it was skipped. |
+| Tag              | Published and verified; only tags are missing.                               | Push the tags by hand (below).                                                                                                                                                                      |
+| Back-merge       | Published and tagged; `staging`/`development` are behind.                    | Read the error. If it refused a rollback propagation, that is deliberate — see Rollback. Otherwise resolve the `sync/*` PR it opened.                                                               |
+
+**npm is slower than it looks.** Measured from npm's own `time` records,
+`@nukesai-pos/cli` lands about **63 seconds** after the first package in the
+same `pnpm publish -r`, reproducibly. That is why
+`scripts/verify-published.mjs` waits 195 seconds. Do not shorten it to make a
+release "faster" — a false failure costs more than the wait, and it trains
+people to ignore a real one.
+
+### Pushing tags by hand
+
+Only needed when the tag step was skipped by an earlier failure.
+
+```bash
+git checkout main && git pull
+pnpm exec changeset git-tag                     # one tag per package
+VERSION="$(node -p "require('./packages/backend/package.json').version")"
+git tag -a "v$VERSION" -m "v$VERSION"
+git tag --points-at HEAD | while IFS= read -r t; do git push origin "refs/tags/$t"; done
+```
+
+Push tags one at a time. The names contain `@` and `/`, and the local husky
+pre-push hook runs a full typecheck, which mangles a multi-ref push.
+
+---
+
+## Creating or re-creating the long-lived branches
+
+**Fetch first.** `staging` and `development` were once created from a local
+`main` that had not been pulled, so both landed 9 commits behind and carried
+none of the release workflows — pushes to them published nothing and said
+nothing.
+
+```bash
+git fetch origin
+git switch -c staging   origin/main   && git push -u origin staging
+git switch -c development origin/staging && git push -u origin development
+```
+
+That order gives all three an identical merge base, so the first promotion PRs
+are empty rather than enormous reverse diffs.
+
+Verify before trusting them:
+
+```bash
+for b in main staging development; do
+  printf '%-12s %s  %s/4 workflows\n' "$b" "$(git rev-parse --short origin/$b)" \
+    "$(git ls-tree -r origin/$b --name-only | grep -c 'release-canary\|release-beta\|release-production\|promote')"
+done
+```
+
+If a branch is behind and has no unique commits, fast-forward it — this is
+non-destructive:
+
+```bash
+git push origin origin/main:refs/heads/staging
+```
+
+---
+
 ## Rollback
 
 **Rule: never `git revert -m 1` a promotion merge on `main`.**
@@ -113,13 +194,37 @@ counter-revert. That redness is the point.
 
 ## One-time setup
 
-| Setting                  | Required                                               |
-| ------------------------ | ------------------------------------------------------ |
-| `allow_squash_merge`     | **false**                                              |
-| `allow_rebase_merge`     | **false**                                              |
-| `delete_branch_on_merge` | **true**                                               |
-| environment `release`    | `NPM_TOKEN` — used by canary and beta                  |
-| environment `production` | `NPM_TOKEN` **plus variable `RELEASE_ALLOW_LATEST=1`** |
+**All of this is DONE as of the 1.0.0 release (2026-08-25).** It is recorded so
+that a future reader can verify it rather than redo it.
+
+| Setting                  | Required                                               | State |
+| ------------------------ | ------------------------------------------------------ | ----- |
+| `allow_squash_merge`     | **false**                                              | done  |
+| `allow_rebase_merge`     | **false**                                              | done  |
+| `delete_branch_on_merge` | **true**                                               | done  |
+| environment `release`    | `NPM_TOKEN` — canary and beta                          | done  |
+| environment `production` | `NPM_TOKEN` **plus variable `RELEASE_ALLOW_LATEST=1`** | done  |
+
+Verify any time:
+
+```bash
+GH_PAGER=cat gh api repos/nukesai/hospitality --jq \
+  '"squash=\(.allow_squash_merge) rebase=\(.allow_rebase_merge) delete=\(.delete_branch_on_merge)"'
+GH_PAGER=cat gh api repos/nukesai/hospitality/environments/production/variables --jq '.variables[] | "\(.name)=\(.value)"'
+GH_PAGER=cat gh api repos/nukesai/hospitality/environments/production/secrets   --jq '.secrets[].name'
+```
+
+`RELEASE_ALLOW_LATEST` must exist on `production` and **nowhere else**. The guard
+refuses a canary or beta publish if it sees that variable, so putting it on the
+shared `release` environment would break both pre-release channels. Two
+environments is the reason it is invisible to them.
+
+`NPM_TOKEN` cannot be copied between environments by any tool — GitHub secrets
+are write-only, readable by nobody after they are set. A human pastes it:
+
+```bash
+gh secret set NPM_TOKEN --env production      # prompts, hidden input, no shell history
+```
 
 Branch protection is **not available on this plan** — both
 `branches/main/protection` and the rulesets endpoint return
