@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { injectConsumerDependencies } from "./deps.js";
+import { injectConsumerDependencies, posRange } from "./deps.js";
 
 const makeApp = async (pkg: object): Promise<string> => {
   const cwd = await mkdtemp(path.join(tmpdir(), "nukes-cli-deps-"));
@@ -62,5 +62,39 @@ describe("injectConsumerDependencies", () => {
     // resolution and break the consumer's own zod-3 code.
     expect(pkg.dependencies.zod).toBeUndefined();
     expect(pkg.devDependencies.zod).toBe("^3.25.0");
+  });
+  // Both branches of the range ternary. The 100% gate is explicit-include, and
+  // a caret on a canary is the bug this pins shut.
+  describe("posRange", () => {
+    it("carets a stable version so a scaffolded app tracks minors and patches", () => {
+      expect(posRange("1.2.3")).toBe("^1.2.3");
+    });
+
+    it("carets a beta so a pilot graduates onto the GA without editing a file", () => {
+      expect(posRange("1.2.0-beta.20260826120000.sha-9f3ab21")).toBe(
+        "^1.2.0-beta.20260826120000.sha-9f3ab21",
+      );
+    });
+
+    it("pins a canary exactly, because ^0.0.0-canary-* resolves no stable release", () => {
+      const canary = "0.0.0-canary-20260826120000-9f3ab21";
+      expect(posRange(canary)).toBe(canary);
+      expect(posRange(canary).startsWith("^")).toBe(false);
+    });
+  });
+
+  it("writes an exact pin, not a caret, when the CLI itself is a canary", async () => {
+    const cwd = await mkdtemp(path.join(tmpdir(), "nukes-cli-deps-canary-"));
+    await writeFile(path.join(cwd, "package.json"), JSON.stringify({}));
+
+    const canary = "0.0.0-canary-20260826120000-9f3ab21";
+    await injectConsumerDependencies(cwd, canary, false);
+
+    const pkg = JSON.parse(await readFile(path.join(cwd, "package.json"), "utf8")) as {
+      dependencies: Record<string, string>;
+    };
+    for (const name of ["@nukesai-pos/backend", "@nukesai-pos/common", "@nukesai-pos/frontend"]) {
+      expect(pkg.dependencies[name]).toBe(canary);
+    }
   });
 });
