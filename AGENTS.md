@@ -153,6 +153,23 @@ queue. `scripts/stamp-canary-version.mjs` writes the version directly, so all
 three channels work simultaneously. It mutates the working tree and must never
 be committed.
 
+`scripts/release.mjs` is the single publish entry point (`pnpm release`,
+`pnpm release:canary`). It probes the registry FIRST and exits 0 when the
+current version is already published everywhere — changesets/action runs the
+publish script on every main build with no pending changesets ("No changesets
+found. Attempting to publish any unpublished packages to npm"), so a docs-only
+merge must be a no-op, not a red build. The fail-closed channel guard runs only
+when a publish is actually real.
+
+A publish is not done until the REGISTRY says so. `pnpm publish` printing
+`✅ Published package ...` is not proof: on run 32808766986 it printed exactly
+that for `@nukesai-pos/cli`, exited 0, and the registry 404s that version — the
+fixed group was split on npm and the job went green. Both release scripts now
+end in `scripts/verify-published.mjs`, which asks the registry (cache-busted,
+with backoff) that every package in the fixed group exists at the expected
+version AND that the dist-tag resolves to it. Re-running a release is safe:
+publishing an already-published version is a no-op.
+
 Rollback is a dist-tag move, not a republish:
 `npm dist-tag add @nukesai-pos/backend@<last good> latest` — applied to **all
 four** packages, or consumers get a split install.
