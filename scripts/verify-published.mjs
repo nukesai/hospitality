@@ -20,10 +20,21 @@
  *      fixed and a consumer installing one tag must get a coherent set
  *
  * Usage:
- *   node scripts/verify-published.mjs --version <v> --tag <t> [--retries 5]
+ *   node scripts/verify-published.mjs --version <v> --tag <t> [--retries 10]
  *
- * Registry propagation is not instant, so a miss is retried with backoff
- * before it is called a failure.
+ * Registry propagation is not instant, so a miss is retried with backoff before
+ * it is called a failure. THE BUDGET IS DELIBERATELY GENEROUS. Measured from
+ * npm's own `time` records, `@nukesai-pos/cli` lands about 63 SECONDS after the
+ * first package in the same `pnpm publish -r` — twice, reproducibly:
+ *
+ *     common 1.0.0  06:45:32.986Z    common canary  06:53:13.869Z
+ *     cli    1.0.0  06:46:35.866Z    cli    canary  06:54:16.361Z
+ *
+ * The original 5 attempts at 3/6/9/12s gave a 30-second window, so it reddened
+ * two real, correct releases (runs 32818068451 and 32818579714) whose packages
+ * were all present a minute later. A publish is rare and a false failure is
+ * expensive to triage, so waiting minutes to be certain is the cheap side of
+ * this trade.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -71,7 +82,7 @@ const checkOne = async (name, version, tag) => {
 const main = async () => {
   const version = arg("--version");
   const tag = arg("--tag");
-  const retries = Number(arg("--retries", "5"));
+  const retries = Number(arg("--retries", "10"));
 
   if (version === undefined || tag === undefined) {
     process.stderr.write("usage: verify-published.mjs --version <v> --tag <t> [--retries N]\n");
@@ -93,7 +104,10 @@ const main = async () => {
     }
     if (failures.length === 0) break;
     if (attempt < retries) {
-      const waitMs = attempt * 3000;
+      // Linear ramp capped at 30s: 5+10+15+20+25+30+30+30+30 = 195s of patience,
+      // comfortably past the ~63s worst case measured above, without a long tail
+      // of exponential doubling on a genuinely broken publish.
+      const waitMs = Math.min(attempt * 5000, 30000);
       process.stderr.write(
         `  attempt ${String(attempt)}/${String(retries)}: ${String(failures.length)} package(s) not visible yet, retrying in ${String(waitMs / 1000)}s\n`,
       );
