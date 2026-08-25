@@ -163,9 +163,15 @@ const main = async () => {
     return;
   }
 
+  // stdio [stdin, stdout, stderr] = [ignore, 2, 2]: the child's stdout goes to
+  // OUR stderr, not our stdout. `changeset version` prints a banner and "All
+  // files have been updated", and under a plain "inherit" that chatter lands on
+  // this script's stdout — breaking the contract above that stdout carries the
+  // stamped version and nothing else. Caught by a dry run, where the captured
+  // stdout was three lines of changesets banner followed by the version.
   execFileSync("pnpm", ["exec", "changeset", "version"], {
     cwd: ROOT,
-    stdio: "inherit",
+    stdio: ["ignore", 2, 2],
     encoding: "utf8",
   });
 
