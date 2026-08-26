@@ -48,6 +48,31 @@ const run = (command, args) => {
   }
 };
 
+/**
+ * Like run(), but hands the child's exit code BACK instead of exiting.
+ *
+ * run() ends in `process.exit(status)`, which is right for a step that must
+ * abort the release — and fatal for one that is meant to be retried. The
+ * publish retry loop below called run() and so could never reach round 2: the
+ * moment `pnpm publish` exited non-zero the process was gone. The loop only
+ * ever covered "pnpm exited 0 and the registry disagreed", which is the failure
+ * we had actually seen, so it worked — but it was one bad exit code away from
+ * not working at all.
+ *
+ * That distinction stops being academic under trusted publishing, where
+ * authentication is exchanged PER PACKAGE. A credential that fails at package
+ * three leaves the fixed group split across the registry, and a retry is the
+ * only thing that closes it.
+ */
+const runStatus = (command, args) => {
+  try {
+    execFileSync(command, args, { cwd: ROOT, stdio: "inherit", encoding: "utf8" });
+    return 0;
+  } catch (error) {
+    return typeof error?.status === "number" ? error.status : 1;
+  }
+};
+
 /** Same guard as run(): a stamper's refusal must not surface as a stack dump. */
 const capture = (command, args) => {
   try {
@@ -135,7 +160,7 @@ const main = async () => {
   // already exists is a no-op — the packages that landed are untouched and only
   // the missing one is retried.
   const publishOnce = () =>
-    run("pnpm", [
+    runStatus("pnpm", [
       "publish",
       "-r",
       "--no-git-checks",
@@ -169,7 +194,10 @@ const main = async () => {
           + "  (publishing an already-published version is a no-op)\n\n",
       );
     }
-    publishOnce();
+    const status = publishOnce();
+    if (status !== 0) {
+      process.stderr.write(`  pnpm publish exited ${String(status)} on round ${String(round)}.\n`);
+    }
     landed = verified();
   }
 
