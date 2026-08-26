@@ -27,43 +27,58 @@ describe("createCacheFromEnv", () => {
   it("memory driver returns a cache with a null kv", async () => {
     const onStoreError = vi.fn<(error: Error) => void>();
     const { cache, kv } = await createCacheFromEnv(makeEnv(), { onStoreError });
-    expect(kv).toBeNull();
+    expect(kv).not.toBeNull();
     expect(typeof cache.getOrSet).toBe("function");
     await cache.set("pos:loc:entity:k", { a: 1 }, { ttlSeconds: 60 });
     await expect(cache.get("pos:loc:entity:k")).resolves.toEqual({ a: 1 });
     await cache.close();
   });
 
-  it("fires the production fallback warning when memory is used in production", async () => {
-    const onMemoryFallbackInProduction = vi.fn<() => void>();
-    const { kv } = await createCacheFromEnv(
+  it("fires the memory fallback warning in production", async () => {
+    const onMemoryFallback = vi.fn<() => void>();
+    const { kv, sharedKv } = await createCacheFromEnv(
       makeEnv({ NODE_ENV: "production", ALLOW_MEMORY_CACHE_IN_PROD: "true" }),
       {
         onStoreError: vi.fn<(error: Error) => void>(),
-        onMemoryFallbackInProduction,
+        onMemoryFallback,
       },
     );
-    expect(kv).toBeNull();
-    expect(onMemoryFallbackInProduction).toHaveBeenCalledTimes(1);
+    expect(kv).not.toBeNull();
+    expect(sharedKv).toBeNull();
+    expect(onMemoryFallback).toHaveBeenCalledTimes(1);
   });
 
-  it("tolerates a missing fallback warning callback in production", async () => {
-    const { kv } = await createCacheFromEnv(
+  it("tolerates a missing fallback warning callback", async () => {
+    const { kv, sharedKv } = await createCacheFromEnv(
       makeEnv({ NODE_ENV: "production", ALLOW_MEMORY_CACHE_IN_PROD: "true" }),
       {
         onStoreError: vi.fn<(error: Error) => void>(),
       },
     );
-    expect(kv).toBeNull();
+    expect(kv).not.toBeNull();
+    expect(sharedKv).toBeNull();
   });
 
-  it("does not fire the fallback warning outside production", async () => {
-    const onMemoryFallbackInProduction = vi.fn<() => void>();
+  it("fires the memory fallback warning OUTSIDE production too", async () => {
+    // A public staging box on the default driver has per-process invalidation
+    // and per-process rate limits, and used to say nothing about either.
+    const onMemoryFallback = vi.fn<() => void>();
     await createCacheFromEnv(makeEnv({ NODE_ENV: "development" }), {
       onStoreError: vi.fn<(error: Error) => void>(),
-      onMemoryFallbackInProduction,
+      onMemoryFallback,
     });
-    expect(onMemoryFallbackInProduction).not.toHaveBeenCalled();
+    expect(onMemoryFallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("memory driver returns a usable kv but never a sharedKv", async () => {
+    // sharedKv gates better-auth's SecondaryStorage. Without Redis it must stay
+    // null so better-auth keeps using Postgres, which IS shared across instances.
+    const { kv, sharedKv } = await createCacheFromEnv(makeEnv({ NODE_ENV: "development" }), {
+      onStoreError: vi.fn<(error: Error) => void>(),
+    });
+    expect(sharedKv).toBeNull();
+    await expect(kv.incrementWithTtl("rl:probe", 60)).resolves.toBe(1);
+    await expect(kv.incrementWithTtl("rl:probe", 60)).resolves.toBe(2);
   });
 
   it("ioredis driver builds the shared lazy client from CACHE_URL and returns a kv", async () => {

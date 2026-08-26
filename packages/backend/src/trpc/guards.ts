@@ -97,16 +97,20 @@ export interface RateLimitOptions {
 }
 
 /**
- * Fixed-window rate limit over KvPort (Redis when configured). Fail-open when
- * no KV is configured (memory cache dev setups); better-auth's own limiter
- * still guards /api/auth/*. Key: userId over ip over "anon".
+ * Fixed-window rate limit over KvPort. The KV is ALWAYS present — Redis when
+ * configured, otherwise an in-process store — so this no longer fails open.
+ * It used to return early whenever no KV was configured, which meant the
+ * default `CACHE_DRIVER=memory` left every tRPC route unlimited.
+ *
+ * Without Redis the window is per-process, so N instances allow about N x the
+ * limit. Bounded and documented, rather than absent. Key: userId over ip over
+ * "anon".
  */
 export async function checkRateLimit(
   ctx: PosTrpcContext,
   path: string,
   options: RateLimitOptions,
 ): Promise<void> {
-  if (ctx.deps.kv === null) return;
   const subject = ctx.session?.userId ?? ctx.ip ?? "anon";
   const key = `rl:${options.bucket}:${path}:${subject}`;
   const count = await ctx.deps.kv.incrementWithTtl(key, options.windowSeconds);

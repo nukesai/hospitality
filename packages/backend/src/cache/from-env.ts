@@ -5,14 +5,31 @@ import { createCache, type CreateCacheDeps } from "./create-cache.js";
 
 export interface CacheFromEnvDeps extends CreateCacheDeps {
   readonly onStoreError: (error: Error) => void;
-  /** Called when production falls back to the in-memory driver (no shared invalidation). */
-  readonly onMemoryFallbackInProduction?: () => void;
+  /**
+   * Called whenever the in-memory driver is selected — in EVERY environment, not
+   * just production. A public staging box on the default driver has per-process
+   * cache invalidation and per-process rate limits and used to say nothing at
+   * all about it.
+   */
+  readonly onMemoryFallback?: () => void;
 }
 
 export interface CacheFromEnvResult {
   readonly cache: CachePort;
-  /** Redis-backed KV for better-auth SecondaryStorage / rate limiting; null on memory. */
-  readonly kv: KvPort | null;
+  /**
+   * ALWAYS present. Backs API rate limiting, which must not depend on whether
+   * anyone provisioned Redis — an infrastructure choice should not silently
+   * decide a security posture. Memory-backed when no Redis is configured, which
+   * makes the limit per-process rather than absent.
+   */
+  readonly kv: KvPort;
+  /**
+   * Non-null ONLY when the KV is shared across processes and outlives them.
+   * better-auth's SecondaryStorage goes here and nowhere else: without Redis it
+   * falls back to Postgres, which is SHARED, so handing it a per-process memory
+   * store would make sessions and better-auth's own limiter LESS correct.
+   */
+  readonly sharedKv: KvPort | null;
 }
 
 /**
@@ -35,7 +52,8 @@ export const createCacheFromEnv = async (
     }
     const options = { url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN };
     const store: CacheStore = createUpstashCacheStore(options);
-    return { cache: createCache(store, deps), kv: createUpstashKv(createUpstashKvClient(options)) };
+    const upstashKv = createUpstashKv(createUpstashKvClient(options));
+    return { cache: createCache(store, deps), kv: upstashKv, sharedKv: upstashKv };
   }
   if (env.CACHE_DRIVER === "ioredis") {
     const { createRedisCacheStore, createRedisKv, getSharedIoredisClient } =
@@ -43,9 +61,18 @@ export const createCacheFromEnv = async (
     /* v8 ignore next -- unreachable: the env schema refines this before we get here; kept as a type guard */
     if (env.CACHE_URL === undefined) throw new Error("ioredis driver requires CACHE_URL");
     const client = getSharedIoredisClient({ url: env.CACHE_URL, onError: deps.onStoreError });
-    return { cache: createCache(createRedisCacheStore(client), deps), kv: createRedisKv(client) };
+    const redisKv = createRedisKv(client);
+    return {
+      cache: createCache(createRedisCacheStore(client), deps),
+      kv: redisKv,
+      sharedKv: redisKv,
+    };
   }
-  if (env.NODE_ENV === "production") deps.onMemoryFallbackInProduction?.();
-  const { createMemoryCacheStore } = await import("../adapters/cache/memory.js");
-  return { cache: createCache(createMemoryCacheStore(), deps), kv: null };
+  deps.onMemoryFallback?.();
+  const { createMemoryCacheStore, createMemoryKv } = await import("../adapters/cache/memory.js");
+  return {
+    cache: createCache(createMemoryCacheStore(), deps),
+    kv: createMemoryKv(),
+    sharedKv: null,
+  };
 };

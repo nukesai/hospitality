@@ -100,14 +100,16 @@ async function assemble(
   // R2 boot guard: in production, refuse to serve on an RLS-exempt role.
   if (env.NODE_ENV === "production") await assertRlsEnforcedRole(posDb.pool);
 
-  const { cache, kv } = await createCacheFromEnv(env, {
+  const { cache, kv, sharedKv } = await createCacheFromEnv(env, {
     onStoreError: (error) => {
       logger.error("cache.store.error", { message: error.message });
     },
-    onMemoryFallbackInProduction: () => {
+    onMemoryFallback: () => {
       logger.warn("cache.memory-fallback", {
         message:
-          "CACHE_DRIVER=memory in production: no shared invalidation across instances AND API rate limiting is disabled (kv unavailable)",
+          "CACHE_DRIVER=memory: cache invalidation and API rate limits are PER-PROCESS. "
+          + "Correct on a single instance; across N instances expect stale reads and "
+          + "roughly N x the configured rate limit. Set CACHE_DRIVER=ioredis or upstash to share them.",
       });
     },
     ...(options.waitUntil !== undefined ? { waitUntil: options.waitUntil } : {}),
@@ -129,7 +131,9 @@ async function assemble(
     },
     db: posDb.db,
     schema,
-    secondaryStorage: kv === null ? undefined : createSecondaryStorage(kv, "ba:"),
+    // sharedKv, never kv: without Redis better-auth falls back to Postgres,
+    // which is shared across instances, so a per-process store would be worse.
+    secondaryStorage: sharedKv === null ? undefined : createSecondaryStorage(sharedKv, "ba:"),
     mailer: mail,
   });
 
