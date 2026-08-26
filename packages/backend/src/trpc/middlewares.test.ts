@@ -6,6 +6,7 @@ import { z, type ZodError } from "zod";
 import type { CachePort } from "../ports/cache.js";
 import type { KvPort } from "../ports/kv.js";
 import type { PosSessionInfo, PosTrpcContext, PosTrpcDeps } from "./init.js";
+import { createMemoryKv } from "../adapters/cache/memory.js";
 import {
   cacheInvalidationMiddleware,
   cacheMetaMiddleware,
@@ -35,7 +36,7 @@ const createCtx = (options: CtxOptions = {}): PosTrpcContext => {
           Promise.resolve(options.member ?? null),
       },
     },
-    kv: options.kv ?? null,
+    kv: options.kv ?? createMemoryKv(),
     cache: options.cache ?? {},
   } as unknown as PosTrpcDeps;
   const ctx: PosTrpcContext = {
@@ -198,9 +199,19 @@ describe("createRateLimitMiddleware", () => {
     expect(DEFAULT_API_RATE_LIMIT).toEqual({ bucket: "api", limit: 120, windowSeconds: 60 });
   });
 
-  it("fails open without a kv store", async () => {
-    const { promise } = run(createRateLimitMiddleware());
-    await expect(promise).resolves.toEqual({ ok: true });
+  it("enforces the limit on the default (memory) KV rather than failing open", async () => {
+    // This test used to assert the opposite. A deployment on the default
+    // CACHE_DRIVER=memory had NO rate limit on any tRPC route, which let an
+    // infrastructure choice silently decide a security posture.
+    const kv = createMemoryKv();
+    const middleware = createRateLimitMiddleware({ bucket: "api", limit: 2, windowSeconds: 60 });
+    const ctx = createCtx({ kv });
+
+    await expect(run(middleware, { ctx }).promise).resolves.toEqual({ ok: true });
+    await expect(run(middleware, { ctx }).promise).resolves.toEqual({ ok: true });
+    await expect(run(middleware, { ctx }).promise).rejects.toMatchObject({
+      code: "TOO_MANY_REQUESTS",
+    });
   });
 
   it("maps RATE_LIMITED to TOO_MANY_REQUESTS once over budget", async () => {

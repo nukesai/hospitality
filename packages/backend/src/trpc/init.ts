@@ -35,7 +35,8 @@ export interface PosTrpcDeps {
   readonly auth: PosAuth;
   readonly db: PosDatabase;
   readonly cache: CachePort;
-  readonly kv: KvPort | null;
+  /** Always present — memory-backed without Redis. See createCacheFromEnv. */
+  readonly kv: KvPort;
   readonly logger: LoggerPort;
   readonly analytics: AnalyticsPort;
   readonly isDev: boolean;

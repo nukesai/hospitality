@@ -6,6 +6,7 @@ import type { KvPort } from "../ports/kv.js";
 import { checkRateLimit, requireBranch, requireRole, requireSession } from "./guards.js";
 import type { BranchAuthorization } from "./guards.js";
 import type { PosSessionInfo, PosTrpcContext, PosTrpcDeps } from "./init.js";
+import { createMemoryKv } from "../adapters/cache/memory.js";
 
 interface CtxOptions {
   readonly session?: PosSessionInfo | null;
@@ -184,8 +185,16 @@ const createKv = (count: number): KvHarness => {
 const OPTIONS = { bucket: "auth", limit: 2, windowSeconds: 60 } as const;
 
 describe("checkRateLimit", () => {
-  it("is a no-op when no KV is configured", async () => {
-    await expect(checkRateLimit(createCtx(), "orders.list", OPTIONS)).resolves.toBeUndefined();
+  it("enforces the limit on a memory KV, so no deployment is unlimited", async () => {
+    // Previously "is a no-op when no KV is configured". The KV is now always
+    // present, so there is no configuration in which this silently does nothing.
+    const kv = createMemoryKv();
+    const ctx = createCtx({ kv });
+    await expect(checkRateLimit(ctx, "orders.list", OPTIONS)).resolves.toBeUndefined();
+    await expect(checkRateLimit(ctx, "orders.list", OPTIONS)).resolves.toBeUndefined();
+    await expect(checkRateLimit(ctx, "orders.list", OPTIONS)).rejects.toMatchObject({
+      code: "RATE_LIMITED",
+    });
   });
 
   it("passes under the limit and keys by userId first", async () => {

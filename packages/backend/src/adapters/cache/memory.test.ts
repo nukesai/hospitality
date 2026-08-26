@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createMemoryCacheStore } from "./memory.js";
+import { createMemoryCacheStore, createMemoryKv } from "./memory.js";
 
 interface ManualClock {
   readonly clock: () => number;
@@ -138,5 +138,135 @@ describe("createMemoryCacheStore", () => {
     await expect(store.get("a")).resolves.toBeNull();
     await store.invalidateTags(["t"]); // no-op after close
     await expect(store.get("a")).resolves.toBeNull();
+  });
+});
+
+describe("createMemoryKv", () => {
+  it("round-trips a value and honours an explicit TTL", async () => {
+    const { clock, advance } = manualClock();
+    const kv = createMemoryKv({ clock });
+
+    await kv.set("k", "v", 60);
+    await expect(kv.get("k")).resolves.toBe("v");
+
+    advance(59_999);
+    await expect(kv.get("k")).resolves.toBe("v");
+    advance(1);
+    await expect(kv.get("k")).resolves.toBeNull();
+  });
+
+  it("keeps a value forever when no TTL is given", async () => {
+    const { clock, advance } = manualClock();
+    const kv = createMemoryKv({ clock });
+
+    await kv.set("k", "v");
+    advance(Number.MAX_SAFE_INTEGER);
+    await expect(kv.get("k")).resolves.toBe("v");
+  });
+
+  it("returns null for a key that was never set", async () => {
+    await expect(createMemoryKv().get("absent")).resolves.toBeNull();
+  });
+
+  it("deletes", async () => {
+    const kv = createMemoryKv();
+    await kv.set("k", "v");
+    await kv.delete("k");
+    await expect(kv.get("k")).resolves.toBeNull();
+    // deleting an absent key is a no-op, not an error
+    await expect(kv.delete("k")).resolves.toBeUndefined();
+  });
+
+  it("getAndDelete returns the value once, then null", async () => {
+    const kv = createMemoryKv();
+    await kv.set("k", "v");
+    await expect(kv.getAndDelete("k")).resolves.toBe("v");
+    await expect(kv.getAndDelete("k")).resolves.toBeNull();
+  });
+
+  it("getAndDelete on an expired key returns null and clears it", async () => {
+    const { clock, advance } = manualClock();
+    const kv = createMemoryKv({ clock });
+    await kv.set("k", "v", 1);
+    advance(1_000);
+    await expect(kv.getAndDelete("k")).resolves.toBeNull();
+  });
+
+  it("increments within a fixed window and resets after it", async () => {
+    const { clock, advance } = manualClock();
+    const kv = createMemoryKv({ clock });
+
+    await expect(kv.incrementWithTtl("rl", 60)).resolves.toBe(1);
+    await expect(kv.incrementWithTtl("rl", 60)).resolves.toBe(2);
+    await expect(kv.incrementWithTtl("rl", 60)).resolves.toBe(3);
+
+    advance(60_000);
+    // window elapsed: the counter starts again, it does not keep climbing
+    await expect(kv.incrementWithTtl("rl", 60)).resolves.toBe(1);
+  });
+
+  it("does NOT extend the window on later hits", async () => {
+    // Matches the Redis adapters: TTL is applied only on creation. Extending it
+    // per hit would let a steady stream hold the window open indefinitely and
+    // never reset the count.
+    const { clock, advance } = manualClock();
+    const kv = createMemoryKv({ clock });
+
+    await kv.incrementWithTtl("rl", 60);
+    advance(30_000);
+    await expect(kv.incrementWithTtl("rl", 60)).resolves.toBe(2);
+    advance(30_000);
+    await expect(kv.incrementWithTtl("rl", 60)).resolves.toBe(1);
+  });
+
+  it("evicts expired keys before the oldest when it hits the bound", async () => {
+    const { clock, advance } = manualClock();
+    const kv = createMemoryKv({ maxEntries: 3, clock });
+
+    await kv.set("expired", "x", 1);
+    await kv.set("keep-a", "a");
+    advance(2_000); // "expired" is now stale, the untTL'd one is not
+    await kv.set("keep-b", "b");
+    await kv.set("keep-c", "c"); // forces reserve()
+
+    await expect(kv.get("expired")).resolves.toBeNull();
+    await expect(kv.get("keep-b")).resolves.toBe("b");
+    await expect(kv.get("keep-c")).resolves.toBe("c");
+  });
+
+  it("evicts the oldest when nothing has expired, so it cannot leak", async () => {
+    const kv = createMemoryKv({ maxEntries: 2 });
+    await kv.set("one", "1");
+    await kv.set("two", "2");
+    await kv.set("three", "3");
+
+    await expect(kv.get("one")).resolves.toBeNull();
+    await expect(kv.get("three")).resolves.toBe("3");
+  });
+
+  it("bounds incrementWithTtl too", async () => {
+    const kv = createMemoryKv({ maxEntries: 2 });
+    await kv.incrementWithTtl("a", 60);
+    await kv.incrementWithTtl("b", 60);
+    await kv.incrementWithTtl("c", 60);
+    await expect(kv.get("a")).resolves.toBeNull();
+    await expect(kv.incrementWithTtl("c", 60)).resolves.toBe(2);
+  });
+
+  it("survives a zero bound instead of spinning forever", async () => {
+    // maxEntries: 0 makes the eviction loop's guard reachable — `entries.size >= 0`
+    // is always true, so without the break it would loop forever on an empty map.
+    const kv = createMemoryKv({ maxEntries: 0 });
+    await expect(kv.set("k", "v")).resolves.toBeUndefined();
+    await expect(kv.incrementWithTtl("rl", 60)).resolves.toBe(1);
+  });
+
+  it("re-setting an existing key replaces it rather than duplicating", async () => {
+    const kv = createMemoryKv({ maxEntries: 2 });
+    await kv.set("k", "first");
+    await kv.set("k", "second");
+    await kv.set("other", "o");
+    await expect(kv.get("k")).resolves.toBe("second");
+    await expect(kv.get("other")).resolves.toBe("o");
   });
 });
