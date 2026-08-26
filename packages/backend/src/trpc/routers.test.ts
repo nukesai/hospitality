@@ -8,7 +8,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { createMemoryCacheStore } from "../adapters/cache/memory.js";
+import { createMemoryCacheStore, createMemoryKv } from "../adapters/cache/memory.js";
 import { createCache } from "../cache/create-cache.js";
 import type { CachePort } from "../ports/cache.js";
 import type { PosSessionInfo, PosTrpcContext, PosTrpcDeps } from "./init.js";
@@ -30,7 +30,7 @@ const createCtx = (options: CtxOptions = {}): PosTrpcContext => {
           Promise.resolve(options.member ?? null),
       },
     },
-    kv: null,
+    kv: createMemoryKv(),
     cache: options.cache ?? {},
     db: options.db,
   } as unknown as PosTrpcDeps;

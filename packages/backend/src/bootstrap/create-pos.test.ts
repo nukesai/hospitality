@@ -100,8 +100,9 @@ describe("createNukesPos", () => {
     expect(onPoolCreated).toHaveBeenCalledTimes(1);
     expect(onPoolCreated).toHaveBeenCalledWith(pos.pool);
 
-    // memory driver: cache works locally, kv is null.
-    expect(pos.kv).toBeNull();
+    // memory driver: cache works locally and the KV is real (so rate limiting
+    // is enforced), but it is per-process, so it never backs better-auth.
+    expect(pos.kv).not.toBeNull();
     await pos.cache.set("k", { n: 1 }, { ttlSeconds: 60 });
     await expect(pos.cache.get("k")).resolves.toEqual({ n: 1 });
 
@@ -118,7 +119,7 @@ describe("createNukesPos", () => {
     expect(deps.auth).toBe(pos.auth);
     expect(deps.db).toBe(pos.db);
     expect(deps.cache).toBe(pos.cache);
-    expect(deps.kv).toBeNull();
+    expect(deps.kv).not.toBeNull();
     expect(deps.logger).toBe(logger);
     expect(deps.analytics).toBe(pos.analytics);
     expect(deps.isDev).toBe(true); // NODE_ENV defaults to development

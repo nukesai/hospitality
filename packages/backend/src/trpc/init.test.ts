@@ -7,6 +7,7 @@ import { z } from "zod";
 import { resolveLocale } from "../i18n/resolve-locale.js";
 import { createTRPCContext, posErrorFormatter } from "./init.js";
 import type { PosTrpcContext, PosTrpcDeps } from "./init.js";
+import { createMemoryKv } from "../adapters/cache/memory.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -45,7 +46,7 @@ const createHarness = (raw: SessionShape | null): Harness => {
     } as unknown as PosTrpcDeps["auth"],
     db: {} as unknown as PosTrpcDeps["db"],
     cache: {} as unknown as PosTrpcDeps["cache"],
-    kv: null,
+    kv: createMemoryKv(),
     logger,
     analytics: {} as unknown as PosTrpcDeps["analytics"],
     isDev: false,
